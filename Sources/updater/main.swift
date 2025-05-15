@@ -105,7 +105,13 @@ func update(repo entry: RepoEntry) throws {
         .createDirectory(atPath: binDir, withIntermediateDirectories: true)
 
     for exe in executables {
+        var local: Bool = false
+
         if entry.type == .application {
+            local = true
+        }
+
+        if local {
             print("    Building locally: \(exe)…")
         } else {
             print("    Building & deploying: \(exe) → \(binDir)/\(exe)…")
@@ -113,12 +119,15 @@ func update(repo entry: RepoEntry) throws {
 
         try run("swift", args: ["build", "-c", "release", "--target", exe], in: dirURL)
 
-        guard entry.type != .application else { continue }
+        guard !local else { continue }
 
         // remove old symlink or file
         let linkPath = "\(binDir)/\(exe)"
-        if FileManager.default.fileExists(atPath: linkPath) {
+
+        do {
             try FileManager.default.removeItem(atPath: linkPath)
+        } catch {
+            print("No pre-existing binary, or a broken one")
         }
 
         // create a new symlink into sbm-bin
