@@ -188,6 +188,7 @@ func update(repo entry: RepoEntry) throws {
         let appBundleURL = dirURL.appendingPathComponent("\(repoName).app")
 
         guard FileManager.default.fileExists(atPath: appBundleURL.path) else {
+            print("No file at \(appBundleURL.path())")
             return
         }
 
