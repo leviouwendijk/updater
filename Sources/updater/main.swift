@@ -106,25 +106,40 @@ func update(repo entry: RepoEntry) throws {
     for exe in executables {
         if entry.type == .application {
             print("    Building locally: \(exe)…")
-            try run("swift",
-                    args: ["build","-c","release","--target",exe],
-                    in: dirURL)
         } else {
-            let outPath = "\(binDir)/\(exe)"
-            print("    Building & deploying: \(exe) → \(outPath)…")
-            try run("swift", args: [
-                "build","-c","release",
-                "--target",exe,
-                "-Xswiftc","-o",
-                "-Xswiftc",outPath
-            ], in: dirURL)
-
-            let meta = "ProjectRootPath=\(expanded)\n"
-            let metaURL = URL(fileURLWithPath: binDir).appendingPathComponent("\(exe).metadata")
-
-            try meta.write(to: metaURL, atomically: true, encoding: .utf8)
-            print("    Wrote metadata: \(metaURL.path)")
+            print("    Building & deploying: \(exe) → \(binDir)/\(exe)…")
         }
+
+        try run("swift", args: ["build", "-c", "release", "--target", exe], in: dirURL)
+
+        guard entry.type != .application else { continue }
+
+        // remove old symlink or file
+        let linkPath = "\(binDir)/\(exe)"
+        if FileManager.default.fileExists(atPath: linkPath) {
+            try FileManager.default.removeItem(atPath: linkPath)
+        }
+
+        // create a new symlink into sbm-bin
+        let builtPath = dirURL
+            .appendingPathComponent(".build")
+            .appendingPathComponent("release")
+            .appendingPathComponent(exe)
+            .path
+        try FileManager.default.createSymbolicLink(
+            atPath: linkPath,
+            withDestinationPath: builtPath
+        )
+
+        // write (or overwrite) metadata
+        let metaURL = URL(fileURLWithPath: binDir)
+            .appendingPathComponent("\(exe).metadata")
+        let meta    = "ProjectRootPath=\(expanded)\n"
+        try meta.write(to: metaURL,
+                       atomically: true,
+                       encoding: .utf8)
+        print("    Symlinked \(exe) → \(builtPath)")
+        print("    Wrote metadata: \(metaURL.path)")
     }
 }
 
