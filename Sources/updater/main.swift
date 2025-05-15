@@ -83,31 +83,6 @@ func findExecutableTargets(in repo: URL) throws -> [String] {
        .map { $0.name }
 }
 
-// func findBuiltExecutable(_ exe: String, in repo: URL) throws -> URL {
-//     let buildRoot = repo.appendingPathComponent(".build")
-//     let contents  = try FileManager.default.contentsOfDirectory(atPath: buildRoot.path)
-//     for sub in contents where sub != "checkouts" && sub != "manifest-cache" {
-//         let candidate = buildRoot
-//         .appendingPathComponent(sub)
-//         .appendingPathComponent("release")
-//         .appendingPathComponent(exe)
-//         if FileManager.default.fileExists(atPath: candidate.path) {
-//             return candidate
-//         }
-//     }
-//     // fallback old layout
-//     let fallback = buildRoot
-//     .appendingPathComponent("release")
-//     .appendingPathComponent(exe)
-//     if FileManager.default.fileExists(atPath: fallback.path) {
-//         return fallback
-//     }
-//     throw NSError(domain: "UpdaterError",
-//         code: 1,
-//         userInfo: [NSLocalizedDescriptionKey:
-//         "Couldn’t find built binary for ".ansi(.yellow) + "\(exe)".ansi(.yellow, .bold)])
-// }
-
 func update(repo entry: RepoEntry) throws {
     let raw      = entry.path as NSString
     let expanded = raw.expandingTildeInPath
@@ -117,29 +92,38 @@ func update(repo entry: RepoEntry) throws {
     // check origin first
     print("\n    Checking \(expanded) for updates…")
 
-    try run("git", args: ["fetch", "origin"], in: dirURL)
+    try run("git", args: ["fetch", "--prune"], in: dirURL)
+    let branch = try run("git", args: ["rev-parse","--abbrev-ref","HEAD"], in: dirURL)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+    let upstream = (try? run(
+        "git",
+        args: ["rev-parse","--symbolic-full-name","--abbrev-ref","@{u}"],
+        in: dirURL)
+        .trimmingCharacters(in: .whitespacesAndNewlines))
+        ?? "origin/\(branch)"
 
-    let behindCountStr = try run("git", args: ["rev-list", "--count", "HEAD..origin/master"], in: dirURL)
-    .trimmingCharacters(in: .whitespacesAndNewlines)
+    let behind = Int(try run(
+        "git",
+        args: ["rev-list","--count","HEAD..\(upstream)"],
+        in: dirURL)
+        .trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
 
-    let behind = Int(behindCountStr) ?? 0
+    let ahead = Int(try run(
+        "git",
+        args: ["rev-list","--count","\(upstream)..HEAD"],
+        in: dirURL)
+        .trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
 
-    let aheadCountStr = try run("git", args: ["rev-list", "--count", "origin/master..HEAD"], in: dirURL).trimmingCharacters(in: .whitespacesAndNewlines)
-    let ahead = Int(aheadCountStr) ?? 0
-
-    var hasUncommitted = false
-    do {
-        try run("git", args: ["diff-index", "--quiet", "HEAD", "--"], in: dirURL)
-    } catch {
-        hasUncommitted = true
-    }
+    // use porcelain to catch *all* working‐tree changes (incl. untracked)
+    let status = try run("git", args: ["status","--porcelain"], in: dirURL)
+    let hasUncommitted = !status.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
     if behind == 0 && ahead == 0 && !hasUncommitted {
-        print("    No new commits and no local changes; skipping.".ansi(.green))
+        print("    No changes on \(branch) (upstream: \(upstream)); skipping.")
         return
     }
 
-    print("    Changes detected (behind: \(behind), ahead: \(ahead), uncommitted: \(hasUncommitted)); proceeding.")
+    print("    Detected changes on \(branch) (upstream: \(upstream)): behind=\(behind), ahead=\(ahead), dirty=\(hasUncommitted)")
     // origin checked, aborted if unnecessary to update
 
     print("\n    Updating \(expanded)…")
@@ -200,15 +184,26 @@ func update(repo entry: RepoEntry) throws {
     }
 
     if entry.type == .application {
-        let repoName      = dirURL.lastPathComponent
-        let appBundleURL  = dirURL.appendingPathComponent("\(repoName).app")
-        if FileManager.default.fileExists(atPath: appBundleURL.path) {
-            _ = try? run("pkill", args: ["-x", repoName], in: dirURL)
-            print("    [STOPPED] \(repoName)")
+        let repoName     = dirURL.lastPathComponent
+        let appBundleURL = dirURL.appendingPathComponent("\(repoName).app")
 
-            try run("open", args: [appBundleURL.path], in: dirURL)
-            print("    [LAUNCHED] \(repoName).app")
+        guard FileManager.default.fileExists(atPath: appBundleURL.path) else {
+            return
         }
+
+        _ = try? run(
+            "/usr/bin/killall",
+            args: ["-TERM", repoName],
+            in: dirURL
+        )
+        print("    [STOPPED] \(repoName) if running")
+
+        try run(
+            "/usr/bin/open",
+            args: [appBundleURL.path],
+            in: dirURL
+        )
+        print("    [LAUNCHED] \(repoName).app")
     }
 
     print("")
