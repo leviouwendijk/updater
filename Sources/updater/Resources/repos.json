@@ -1,5 +1,9 @@
 [
     { 
+        "path": "~/myworkdir/programming/scripts/updater",
+        "type": "script"
+    },
+    { 
         "path": "~/myworkdir/programming/scripts/numbers-parser",
         "type": "script"
     },

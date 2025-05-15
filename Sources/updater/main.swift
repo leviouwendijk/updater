@@ -83,36 +83,64 @@ func findExecutableTargets(in repo: URL) throws -> [String] {
        .map { $0.name }
 }
 
-func findBuiltExecutable(_ exe: String, in repo: URL) throws -> URL {
-    let buildRoot = repo.appendingPathComponent(".build")
-    let contents  = try FileManager.default.contentsOfDirectory(atPath: buildRoot.path)
-    for sub in contents where sub != "checkouts" && sub != "manifest-cache" {
-        let candidate = buildRoot
-        .appendingPathComponent(sub)
-        .appendingPathComponent("release")
-        .appendingPathComponent(exe)
-        if FileManager.default.fileExists(atPath: candidate.path) {
-            return candidate
-        }
-    }
-    // fallback old layout
-    let fallback = buildRoot
-    .appendingPathComponent("release")
-    .appendingPathComponent(exe)
-    if FileManager.default.fileExists(atPath: fallback.path) {
-        return fallback
-    }
-    throw NSError(domain: "UpdaterError",
-        code: 1,
-        userInfo: [NSLocalizedDescriptionKey:
-        "Couldn’t find built binary for ".ansi(.yellow) + "\(exe)".ansi(.yellow, .bold)])
-}
+// func findBuiltExecutable(_ exe: String, in repo: URL) throws -> URL {
+//     let buildRoot = repo.appendingPathComponent(".build")
+//     let contents  = try FileManager.default.contentsOfDirectory(atPath: buildRoot.path)
+//     for sub in contents where sub != "checkouts" && sub != "manifest-cache" {
+//         let candidate = buildRoot
+//         .appendingPathComponent(sub)
+//         .appendingPathComponent("release")
+//         .appendingPathComponent(exe)
+//         if FileManager.default.fileExists(atPath: candidate.path) {
+//             return candidate
+//         }
+//     }
+//     // fallback old layout
+//     let fallback = buildRoot
+//     .appendingPathComponent("release")
+//     .appendingPathComponent(exe)
+//     if FileManager.default.fileExists(atPath: fallback.path) {
+//         return fallback
+//     }
+//     throw NSError(domain: "UpdaterError",
+//         code: 1,
+//         userInfo: [NSLocalizedDescriptionKey:
+//         "Couldn’t find built binary for ".ansi(.yellow) + "\(exe)".ansi(.yellow, .bold)])
+// }
 
 func update(repo entry: RepoEntry) throws {
     let raw      = entry.path as NSString
     let expanded = raw.expandingTildeInPath
     let dirURL   = URL(fileURLWithPath: expanded)
     let home     = FileManager.default.homeDirectoryForCurrentUser.path
+
+    // check origin first
+    print("\n    Checking \(expanded) for updates…")
+
+    try run("git", args: ["fetch", "origin"], in: dirURL)
+
+    let behindCountStr = try run("git", args: ["rev-list", "--count", "HEAD..origin/master"], in: dirURL)
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+
+    let behind = Int(behindCountStr) ?? 0
+
+    let aheadCountStr = try run("git", args: ["rev-list", "--count", "origin/master..HEAD"], in: dirURL).trimmingCharacters(in: .whitespacesAndNewlines)
+    let ahead = Int(aheadCountStr) ?? 0
+
+    var hasUncommitted = false
+    do {
+        try run("git", args: ["diff-index", "--quiet", "HEAD", "--"], in: dirURL)
+    } catch {
+        hasUncommitted = true
+    }
+
+    if behind == 0 && ahead == 0 && !hasUncommitted {
+        print("    No new commits and no local changes; skipping.".ansi(.green))
+        return
+    }
+
+    print("    Changes detected (behind: \(behind), ahead: \(ahead), uncommitted: \(hasUncommitted)); proceeding.")
+    // origin checked, aborted if unnecessary to update
 
     print("\n    Updating \(expanded)…")
     try run("git",   args: ["reset","--hard","HEAD"], in: dirURL)
