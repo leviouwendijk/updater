@@ -149,6 +149,11 @@ func update(repo entry: RepoEntry) throws {
                .path
             let destPath = "\(binDir)/\(exe)"
 
+            if !FileManager.default.fileExists(atPath: destPath) {
+                print("Binary not found in build directory ".ansi(.red) + "\(exe)".ansi(.red, .bold))
+                continue
+            }
+
             try? FileManager.default.removeItem(atPath: destPath)
             try FileManager.default.moveItem(atPath: builtPath, toPath: destPath)
             print("    [MOVE] \(exe) → \(destPath)")
