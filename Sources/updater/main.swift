@@ -109,10 +109,20 @@ func relaunchApplication(_ directoryURL: URL) throws {
     pgrep.executableURL       = URL(fileURLWithPath: "/usr/bin/pgrep")
     pgrep.arguments           = ["-x", repoName]
     pgrep.currentDirectoryURL = directoryURL
+
+    let pidPipe = Pipe()
+    pgrep.standardOutput = pidPipe
+
     try pgrep.run(); pgrep.waitUntilExit()
-    let isRunning = (pgrep.terminationStatus == 0)
+    let pidData   = pidPipe.fileHandleForReading.readDataToEndOfFile()
+    let pidString = String(decoding: pidData, as: UTF8.self)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+
+    let isRunning = (pgrep.terminationStatus == 0) && !pidString.isEmpty
 
     if isRunning {
+        print("    [RUNNING] \(repoName)".ansi(.yellow))
+        print("    [PROCESS ID] \(pidString)".ansi(.brightBlack))
         let killall = Process()
         killall.executableURL       = URL(fileURLWithPath: "/usr/bin/killall")
         killall.arguments           = ["-TERM", repoName]
@@ -125,7 +135,7 @@ func relaunchApplication(_ directoryURL: URL) throws {
         opener.arguments           = [appBundleURL.path]
         opener.currentDirectoryURL = directoryURL
         try opener.run()
-        print("    [LAUNCHED] \(repoName).app")
+        print("    [RE-LAUNCHED] \(repoName).app".ansi(.green))
     } else {
         print("    [NOT RUNNING] \(repoName)")
     }
