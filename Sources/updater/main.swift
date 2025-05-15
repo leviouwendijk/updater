@@ -98,7 +98,8 @@ func update(repo: RepoEntry, keepLocal: Bool) throws {
     // }
 
     let home = FileManager.default.homeDirectoryForCurrentUser.path()
-    let base = "source ~/.zprofile && \(home)/sbm-bin/sbm -r"
+    // let base = "source ~/.zprofile && \(home)/sbm-bin/sbm -r"
+    let base = "\(home)/sbm-bin/sbm -r"
     let cmd = keepLocal ? base + " -l" : base
 
     let cmdArgs = ["-c", cmd]
@@ -109,11 +110,11 @@ func update(repo: RepoEntry, keepLocal: Bool) throws {
 @discardableResult
 func run(_ cmd: String, args: [String], in cwd: URL) throws -> String {
     let task = Process()
+    task.environment = ProcessInfo.processInfo.environment
+
     task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
     task.arguments = [cmd] + args
     task.currentDirectoryURL = cwd
-
-    task.environment = ProcessInfo.processInfo.environment
 
     task.standardInput = FileHandle(forReadingAtPath: "/dev/null")
 
