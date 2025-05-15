@@ -198,6 +198,20 @@ func update(repo entry: RepoEntry) throws {
             continue
         }
     }
+
+    if entry.type == .application {
+        let repoName      = dirURL.lastPathComponent
+        let appBundleURL  = dirURL.appendingPathComponent("\(repoName).app")
+        if FileManager.default.fileExists(atPath: appBundleURL.path) {
+            _ = try? run("pkill", args: ["-x", repoName], in: dirURL)
+            print("    [STOPPED] \(repoName)")
+
+            try run("open", args: [appBundleURL.path], in: dirURL)
+            print("    [LAUNCHED] \(repoName).app")
+        }
+    }
+
+    print("")
 }
 
 struct Updater: ParsableCommand {
