@@ -117,7 +117,13 @@ func update(repo entry: RepoEntry) throws {
             print("    Building & deploying: \(exe) → \(binDir)/\(exe)…")
         }
 
-        try run("swift", args: ["build", "-c", "release", "--target", exe], in: dirURL)
+        do {
+            try run("swift", args: ["build", "-c", "release", "--target", exe], in: dirURL)
+            print("    [SUCCESS] \(exe) built".ansi(.green))
+        } catch {
+            print("    [FAIL] \(exe) build failed: \(error.localizedDescription)".ansi(.red))
+            continue
+        }
 
         guard !local else { continue }
 
@@ -148,8 +154,8 @@ func update(repo entry: RepoEntry) throws {
         try meta.write(to: metaURL,
                        atomically: true,
                        encoding: .utf8)
-        print("    Symlinked \(exe) → \(builtPath)".ansi(.green))
-        print("    Wrote metadata: \(metaURL.path)".ansi(.green))
+        print("    [DEPLOY] \(exe) → \(builtPath)".ansi(.brightBlack))
+        print("    [META] Wrote metadata: \(metaURL.path)".ansi(.brightBlack))
     }
 }
 
