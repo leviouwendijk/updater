@@ -31,12 +31,15 @@ struct Updater: ParsableCommand {
 
     func run() throws {
         let url = URL(fileURLWithPath: config).resolvingSymlinksInPath()
-
         let data = try Data(contentsOf: url)
         let repos = try JSONDecoder().decode([RepoEntry].self, from: data)
 
         for entry in repos {
-          try update(repo: entry, keepLocal: keepLocal)
+            do {
+                try update(repo: entry, keepLocal: keepLocal)
+            } catch {
+                fputs("Failed updating \(entry.path): \(error.localizedDescription)\n", stderr)
+            }
         }
     }
 }
@@ -65,9 +68,12 @@ func update(repo: RepoEntry, keepLocal: Bool) throws {
 func run(_ cmd: String, args: [String], in cwd: URL) throws -> String {
     let task = Process()
     task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-    task.environment = ProcessInfo.processInfo.environment
     task.arguments = [cmd] + args
     task.currentDirectoryURL = cwd
+
+    task.environment = ProcessInfo.processInfo.environment
+
+    task.standardInput = FileHandle(forReadingAtPath: "/dev/null")
 
     let pipe = Pipe()
     task.standardOutput = pipe
@@ -87,7 +93,7 @@ func run(_ cmd: String, args: [String], in cwd: URL) throws -> String {
         )
     }
 
-    print(out.trimmingCharacters(in: .whitespacesAndNewlines))
+    print(out.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines))
     return out
 }
 
