@@ -138,7 +138,7 @@ func update(repo entry: RepoEntry) throws {
         let local = (entry.type == .application)
 
         if local {
-            print("    [COMPLETED LOCAL UPDATE] Repository now contains: ".ansi(.green) + "\(exe)".ansi(.green, .bold))
+            print("    [COMPLETED LOCAL] Repository now contains: ".ansi(.green) + "\(exe)".ansi(.green, .bold))
         } else {
             print("    Moving: \(exe) → \(binDir)/\(exe)…")
 
@@ -153,7 +153,7 @@ func update(repo entry: RepoEntry) throws {
             try FileManager.default.moveItem(atPath: builtPath, toPath: destPath)
             print("    [MOVE] \(exe) → \(destPath)")
 
-            print("    [COMPLETED SBM-BIN UPDATE] ~/sbm-bin/ now contains ".ansi(.green) + "\(exe)".ansi(.green, .bold))
+            print("    [COMPLETED MOVE] sbm-bin/ now contains ".ansi(.green) + "\(exe)".ansi(.green, .bold))
 
             let metaURL = URL(fileURLWithPath: binDir)
                .appendingPathComponent("\(exe).metadata")
