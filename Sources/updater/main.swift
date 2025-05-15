@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import plate
 
 enum RepoType: String, Codable {
     case script
@@ -38,7 +39,7 @@ func run(_ cmd: String, args: [String], in cwd: URL) throws -> String {
     task.waitUntilExit()
 
     let data = pipe.fileHandleForReading.readDataToEndOfFile()
-    let out  = String(decoding: data, as: UTF8.self)
+    let out  = String(decoding: data, as: UTF8.self).ansi(.brightBlack)
 
     if task.terminationStatus != 0 {
         throw NSError(
@@ -95,7 +96,7 @@ func update(repo entry: RepoEntry) throws {
 
     let executables = try findExecutableTargets(in: dirURL)
     guard !executables.isEmpty else {
-        print("No executable targets found.")
+        print("No executable targets found.".ansi(.yellow))
         return
     }
 
@@ -138,8 +139,8 @@ func update(repo entry: RepoEntry) throws {
         try meta.write(to: metaURL,
                        atomically: true,
                        encoding: .utf8)
-        print("    Symlinked \(exe) → \(builtPath)")
-        print("    Wrote metadata: \(metaURL.path)")
+        print("    Symlinked \(exe) → \(builtPath)".ansi(.green))
+        print("    Wrote metadata: \(metaURL.path)".ansi(.green))
     }
 }
 
@@ -167,7 +168,7 @@ struct Updater: ParsableCommand {
             do {
                 try update(repo: entry)
             } catch {
-                fputs("Failed updating \(entry.path): \(error.localizedDescription)\n", stderr)
+                fputs("Failed updating \(entry.path): \(error.localizedDescription)\n".ansi(.red), stderr)
             }
         }
     }
