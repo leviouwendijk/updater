@@ -65,6 +65,7 @@ func update(repo: RepoEntry, keepLocal: Bool) throws {
 func run(_ cmd: String, args: [String], in cwd: URL) throws -> String {
     let task = Process()
     task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+    task.environment = ProcessInfo.processInfo.environment
     task.arguments = [cmd] + args
     task.currentDirectoryURL = cwd
 
