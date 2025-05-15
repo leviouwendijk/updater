@@ -1,0 +1,18 @@
+[
+    { 
+        "path": "~/myworkdir/programming/scripts/numbers-parser",
+        "type": "script"
+    },
+    { 
+        "path": "~/myworkdir/programming/scripts/mailer",
+        "type": "script"
+    },
+    {
+        "path": "~/myworkdir/programming/applications/Responder",
+        "type": "application"
+    },
+    {
+        "path": "~/myworkdir/programming/applications/Picker",
+        "type": "application"
+    }
+]
