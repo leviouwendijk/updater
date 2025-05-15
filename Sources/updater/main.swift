@@ -83,6 +83,31 @@ func findExecutableTargets(in repo: URL) throws -> [String] {
        .map { $0.name }
 }
 
+func findBuiltExecutable(_ exe: String, in repo: URL) throws -> URL {
+    let buildRoot = repo.appendingPathComponent(".build")
+    let contents  = try FileManager.default.contentsOfDirectory(atPath: buildRoot.path)
+    for sub in contents where sub != "checkouts" && sub != "manifest-cache" {
+        let candidate = buildRoot
+        .appendingPathComponent(sub)
+        .appendingPathComponent("release")
+        .appendingPathComponent(exe)
+        if FileManager.default.fileExists(atPath: candidate.path) {
+            return candidate
+        }
+    }
+    // fallback old layout
+    let fallback = buildRoot
+    .appendingPathComponent("release")
+    .appendingPathComponent(exe)
+    if FileManager.default.fileExists(atPath: fallback.path) {
+        return fallback
+    }
+    throw NSError(domain: "UpdaterError",
+        code: 1,
+        userInfo: [NSLocalizedDescriptionKey:
+        "Couldn’t find built binary for ".ansi(.yellow) + "\(exe)".ansi(.yellow, .bold)])
+}
+
 func update(repo entry: RepoEntry) throws {
     let raw      = entry.path as NSString
     let expanded = raw.expandingTildeInPath
@@ -93,6 +118,9 @@ func update(repo entry: RepoEntry) throws {
     try run("git",   args: ["reset","--hard","HEAD"], in: dirURL)
     try run("git",   args: ["pull","origin","master"], in: dirURL)
     try run("swift", args: ["package","update"],       in: dirURL)
+
+    try run("swift", args: ["build", "-c", "release"], in: dirURL)
+    print("    [SUCCESS] build completed".ansi(.green))
 
     let executables = try findExecutableTargets(in: dirURL)
     guard !executables.isEmpty else {
@@ -107,27 +135,13 @@ func update(repo entry: RepoEntry) throws {
         .createDirectory(atPath: binDir, withIntermediateDirectories: true)
 
     for exe in executables {
-        var local: Bool = false
-
-        if entry.type == .application {
-            local = true
-        }
+        let local = (entry.type == .application)
 
         if local {
-            print("    Building locally: \(exe)…")
+            print("    [COMPLETED LOCAL UPDATE] Repository now contains: ".ansi(.green) + "\(exe)".ansi(.green, .bold))
         } else {
-            print("    Building & deploying: \(exe) → \(binDir)/\(exe)…")
-        }
+            print("    Moving: \(exe) → \(binDir)/\(exe)…")
 
-        do {
-            try run("swift", args: ["build", "-c", "release", "--target", exe], in: dirURL)
-            print("    [SUCCESS] ".ansi(.green) + "\(exe)".ansi(.green, .bold) + " built".ansi(.green))
-        } catch {
-            print("    [FAIL] ".ansi(.red) + "\(exe)".ansi(.red, .bold) + " build failed: \(error.localizedDescription)".ansi(.red))
-            continue
-        }
-
-        if !local {
             let builtPath = dirURL
                .appendingPathComponent(".build")
                .appendingPathComponent("release")
@@ -138,6 +152,8 @@ func update(repo entry: RepoEntry) throws {
             try? FileManager.default.removeItem(atPath: destPath)
             try FileManager.default.moveItem(atPath: builtPath, toPath: destPath)
             print("    [MOVE] \(exe) → \(destPath)")
+
+            print("    [COMPLETED SBM-BIN UPDATE] ~/sbm-bin/ now contains ".ansi(.green) + "\(exe)".ansi(.green, .bold))
 
             let metaURL = URL(fileURLWithPath: binDir)
                .appendingPathComponent("\(exe).metadata")
