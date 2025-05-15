@@ -50,7 +50,7 @@ func executeSBM(_ local: Bool = false) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
 
-        let base = "source ~/.zprofile && \(home)/sbm-bin/sbm -r"
+        let base = "source ~/.zprofile && \(home)sbm-bin/sbm -r"
         let cmd = local ? base + " -l" : base
 
         process.arguments = ["-c", cmd]
