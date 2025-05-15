@@ -83,47 +83,64 @@ func findExecutableTargets(in repo: URL) throws -> [String] {
        .map { $0.name }
 }
 
+func repositoryIsOutdated(_ directoryURL: URL) throws -> Bool {
+    _ = try run("git", args: ["fetch", "origin", "--prune"], in: directoryURL)
+
+    let localHead  = try run("git", args: ["rev-parse", "HEAD"], in: directoryURL)
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+    let remoteHead = try run("git",
+                        args: ["rev-parse", "@{u}"],
+                        in: directoryURL)
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+
+    return localHead != remoteHead
+}
+
+func relaunchApplication(_ directoryURL: URL) throws {
+    let repoName     = directoryURL.lastPathComponent
+    let appBundleURL = directoryURL.appendingPathComponent("\(repoName).app")
+
+    guard FileManager.default.fileExists(atPath: appBundleURL.path) else {
+        print("    No \(repoName).app found at \(appBundleURL.path); skipping launch.")
+        return
+    }
+
+    let pgrep = Process()
+    pgrep.executableURL       = URL(fileURLWithPath: "/usr/bin/pgrep")
+    pgrep.arguments           = ["-x", repoName]
+    pgrep.currentDirectoryURL = directoryURL
+    try pgrep.run(); pgrep.waitUntilExit()
+    let isRunning = (pgrep.terminationStatus == 0)
+
+    if isRunning {
+        let killall = Process()
+        killall.executableURL       = URL(fileURLWithPath: "/usr/bin/killall")
+        killall.arguments           = ["-TERM", repoName]
+        killall.currentDirectoryURL = directoryURL
+        try killall.run(); killall.waitUntilExit()
+        print("    [STOPPED] \(repoName)")
+
+        let opener = Process()
+        opener.executableURL       = URL(fileURLWithPath: "/usr/bin/open")
+        opener.arguments           = [appBundleURL.path]
+        opener.currentDirectoryURL = directoryURL
+        try opener.run()
+        print("    [LAUNCHED] \(repoName).app")
+    } else {
+        print("    [NOT RUNNING] \(repoName)")
+    }
+}
+
 func update(repo entry: RepoEntry) throws {
     let raw      = entry.path as NSString
     let expanded = raw.expandingTildeInPath
     let dirURL   = URL(fileURLWithPath: expanded)
     let home     = FileManager.default.homeDirectoryForCurrentUser.path
 
-    // check origin first
-    print("\n    Checking \(expanded) for updates…")
-
-    try run("git", args: ["fetch", "--prune"], in: dirURL)
-    let branch = try run("git", args: ["rev-parse","--abbrev-ref","HEAD"], in: dirURL)
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-    let upstream = (try? run(
-        "git",
-        args: ["rev-parse","--symbolic-full-name","--abbrev-ref","@{u}"],
-        in: dirURL)
-        .trimmingCharacters(in: .whitespacesAndNewlines))
-        ?? "origin/\(branch)"
-
-    let behind = Int(try run(
-        "git",
-        args: ["rev-list","--count","HEAD..\(upstream)"],
-        in: dirURL)
-        .trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
-
-    let ahead = Int(try run(
-        "git",
-        args: ["rev-list","--count","\(upstream)..HEAD"],
-        in: dirURL)
-        .trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
-
-    let status = try run("git", args: ["status","--porcelain"], in: dirURL)
-    let hasUncommitted = !status.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-
-    if behind == 0 && ahead == 0 && !hasUncommitted {
-        print("    No changes on \(branch) (upstream: \(upstream)); skipping.")
+    if try !repositoryIsOutdated(dirURL) {
+        print("    No upstream changes; skipping.".ansi(.bold))
         return
     }
-
-    print("    Detected changes on \(branch) (upstream: \(upstream)): behind=\(behind), ahead=\(ahead), dirty=\(hasUncommitted)")
-    // origin checked, aborted if unnecessary to update
 
     print("\n    Updating \(expanded)…")
     try run("git",   args: ["reset","--hard","HEAD"], in: dirURL)
@@ -181,38 +198,7 @@ func update(repo entry: RepoEntry) throws {
     }
 
     if entry.type == .application {
-        let repoName     = dirURL.lastPathComponent
-        let appBundleURL = dirURL.appendingPathComponent("\(repoName).app")
-
-        guard FileManager.default.fileExists(atPath: appBundleURL.path) else {
-            print("    No \(repoName).app found at \(appBundleURL.path); skipping launch.")
-            return
-        }
-
-        let pgrep = Process()
-        pgrep.executableURL       = URL(fileURLWithPath: "/usr/bin/pgrep")
-        pgrep.arguments           = ["-x", repoName]
-        pgrep.currentDirectoryURL = dirURL
-        try pgrep.run(); pgrep.waitUntilExit()
-        let isRunning = (pgrep.terminationStatus == 0)
-
-        if isRunning {
-            let killall = Process()
-            killall.executableURL       = URL(fileURLWithPath: "/usr/bin/killall")
-            killall.arguments           = ["-TERM", repoName]
-            killall.currentDirectoryURL = dirURL
-            try killall.run(); killall.waitUntilExit()
-            print("    [STOPPED] \(repoName)")
-
-            let opener = Process()
-            opener.executableURL       = URL(fileURLWithPath: "/usr/bin/open")
-            opener.arguments           = [appBundleURL.path]
-            opener.currentDirectoryURL = dirURL
-            try opener.run()
-            print("    [LAUNCHED] \(repoName).app")
-        } else {
-            print("    [NOT RUNNING] \(repoName)")
-        }
+        try relaunchApplication(dirURL)
     }
 
     print("")
