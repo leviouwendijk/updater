@@ -149,9 +149,9 @@ func update(repo entry: RepoEntry) throws {
                .path
             let destPath = "\(binDir)/\(exe)"
 
-            if !FileManager.default.fileExists(atPath: destPath) {
+            if !FileManager.default.fileExists(atPath: builtPath) {
                 print("    [ERROR] Binary not found in build directory ".ansi(.red) + "\(exe)".ansi(.red, .bold))
-                print("    Inspect path: \(destPath)".ansi(.red))
+                print("    Inspect path: \(builtPath)".ansi(.red))
                 continue
             }
 
