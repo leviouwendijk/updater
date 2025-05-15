@@ -126,8 +126,8 @@ func update(repo entry: RepoEntry) throws {
 
         do {
             try FileManager.default.removeItem(atPath: linkPath)
-        } catch {
-            print("No pre-existing binary, or a broken one")
+        } catch let err as NSError
+          where err.domain == NSCocoaErrorDomain && err.code == NSFileNoSuchFileError {
         }
 
         // create a new symlink into sbm-bin
