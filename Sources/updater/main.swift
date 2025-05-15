@@ -101,6 +101,8 @@ func update(repo entry: RepoEntry) throws {
     }
 
     let binDir = "\(home)/sbm-bin"
+        .replacingOccurrences(of: "//", with: "/")
+
     try FileManager.default
         .createDirectory(atPath: binDir, withIntermediateDirectories: true)
 
