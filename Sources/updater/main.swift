@@ -23,9 +23,6 @@ struct Updater: ParsableCommand {
         return url.path
     }()
 
-    @Flag(name: .shortAndLong, help: "Also pass `-l` to `sbm` for any application entries.")
-    var keepLocal: Bool = false
-
     @Option(name: [.short, .long], help: "Path to your JSON config (default: bundled repos.json)")
     var config: String = Updater.defaultConfigPath
 
@@ -36,12 +33,51 @@ struct Updater: ParsableCommand {
 
         for entry in repos {
             do {
-                try update(repo: entry, keepLocal: keepLocal)
+                try update(repo: entry)
             } catch {
                 fputs("Failed updating \(entry.path): \(error.localizedDescription)\n", stderr)
             }
         }
     }
+}
+
+
+func update(repo: RepoEntry) throws {
+    let raw = repo.path as NSString
+    let expanded = raw.expandingTildeInPath
+    let dirURL = URL(fileURLWithPath: expanded)
+
+    var local: Bool = false
+    if repo.type == .application {
+        local = true
+    }
+
+    print("\n    Updating \(expanded)…")
+
+    try run("git", args: ["reset", "--hard", "HEAD"], in: dirURL)
+    try run("git", args: ["pull", "origin", "master"], in: dirURL)
+    try run("swift", args: ["package", "update"], in: dirURL)
+    
+    do {
+        try executeSBM(local)
+    } catch {
+        print(error)
+    }
+
+    // let base = "sbm"
+    // var cmdArgs = ["-r"]
+    // if repo.type == .application || keepLocal {
+    //     cmdArgs.append(" -l")
+    // }
+
+    // let home = FileManager.default.homeDirectoryForCurrentUser.path()
+    // // let base = "source ~/.zprofile && \(home)/sbm-bin/sbm -r"
+    // let base = "\(home)/sbm-bin/sbm -r"
+    // let cmd = local ? base + " -l" : base
+
+    // let cmdArgs = ["-c", cmd]
+
+    // try run(base, args: cmdArgs, in: dirURL)
 }
 
 func executeSBM(_ local: Bool = false) throws {
@@ -78,33 +114,6 @@ func executeSBM(_ local: Bool = false) throws {
         print("Error running commands: \(error)")
         throw error
     }
-}
-
-func update(repo: RepoEntry, keepLocal: Bool) throws {
-    let raw = repo.path as NSString
-    let expanded = raw.expandingTildeInPath
-    let dirURL = URL(fileURLWithPath: expanded)
-
-    print("\n    Updating \(expanded)…")
-
-    try run("git", args: ["reset", "--hard", "HEAD"], in: dirURL)
-    try run("git", args: ["pull", "origin", "master"], in: dirURL)
-    try run("swift", args: ["package", "update"], in: dirURL)
-
-    // let base = "sbm"
-    // var cmdArgs = ["-r"]
-    // if repo.type == .application || keepLocal {
-    //     cmdArgs.append(" -l")
-    // }
-
-    let home = FileManager.default.homeDirectoryForCurrentUser.path()
-    // let base = "source ~/.zprofile && \(home)/sbm-bin/sbm -r"
-    let base = "\(home)/sbm-bin/sbm -r"
-    let cmd = keepLocal ? base + " -l" : base
-
-    let cmdArgs = ["-c", cmd]
-
-    try run(base, args: cmdArgs, in: dirURL)
 }
 
 @discardableResult
