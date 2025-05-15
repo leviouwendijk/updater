@@ -44,41 +44,41 @@ struct Updater: ParsableCommand {
     }
 }
 
-// func executeSBM(_ local: Bool = false) throws {
-//     do {
-//         let home = FileManager.default.homeDirectoryForCurrentUser.path()
-//         let process = Process()
-//         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+func executeSBM(_ local: Bool = false) throws {
+    do {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
 
-//         let base = "source ~/.zprofile && \(home)/sbm-bin/sbm -r"
-//         let cmd = local ? base + " -l" : base
+        let base = "source ~/.zprofile && \(home)/sbm-bin/sbm -r"
+        let cmd = local ? base + " -l" : base
 
-//         process.arguments = ["-c", cmd]
+        process.arguments = ["-c", cmd]
         
-//         let outputPipe = Pipe()
-//         let errorPipe = Pipe()
-//         process.standardOutput = outputPipe
-//         process.standardError = errorPipe
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+        process.standardOutput = outputPipe
+        process.standardError = errorPipe
 
-//         try process.run()
-//         process.waitUntilExit()
+        try process.run()
+        process.waitUntilExit()
 
-//         let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-//         let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-//         let outputString = String(data: outputData, encoding: .utf8) ?? ""
-//         let errorString = String(data: errorData, encoding: .utf8) ?? ""
+        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+        let outputString = String(data: outputData, encoding: .utf8) ?? ""
+        let errorString = String(data: errorData, encoding: .utf8) ?? ""
 
-//         if process.terminationStatus == 0 {
-//             print("sbm executed successfully:\n\(outputString)")
-//         } else {
-//             print("Error running sbm:\n\(errorString)")
-//             throw NSError(domain: "sbm", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: errorString])
-//         }
-//     } catch {
-//         print("Error running commands: \(error)")
-//         throw error
-//     }
-// }
+        if process.terminationStatus == 0 {
+            print("sbm executed successfully:\n\(outputString)")
+        } else {
+            print("Error running sbm:\n\(errorString)")
+            throw NSError(domain: "sbm", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: errorString])
+        }
+    } catch {
+        print("Error running commands: \(error)")
+        throw error
+    }
+}
 
 func update(repo: RepoEntry, keepLocal: Bool) throws {
     let raw = repo.path as NSString
@@ -91,11 +91,17 @@ func update(repo: RepoEntry, keepLocal: Bool) throws {
     try run("git", args: ["pull", "origin", "master"], in: dirURL)
     try run("swift", args: ["package", "update"], in: dirURL)
 
-    let base = "sbm"
-    var cmdArgs = ["-r"]
-    if repo.type == .application || keepLocal {
-        cmdArgs.append(" -l")
-    }
+    // let base = "sbm"
+    // var cmdArgs = ["-r"]
+    // if repo.type == .application || keepLocal {
+    //     cmdArgs.append(" -l")
+    // }
+
+    let home = FileManager.default.homeDirectoryForCurrentUser.path()
+    let base = "source ~/.zprofile && \(home)/sbm-bin/sbm -r"
+    let cmd = keepLocal ? base + " -l" : base
+
+    let cmdArgs = ["-c", cmd]
 
     try run(base, args: cmdArgs, in: dirURL)
 }
