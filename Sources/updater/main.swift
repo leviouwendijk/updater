@@ -125,9 +125,7 @@ func update(repo entry: RepoEntry) throws {
             continue
         }
 
-        // guard !local else { continue }
-
-        if local {
+        if !local {
             let builtPath = dirURL
                .appendingPathComponent(".build")
                .appendingPathComponent("release")
@@ -147,36 +145,6 @@ func update(repo entry: RepoEntry) throws {
 
             continue
         }
-
-        // // remove old symlink or file
-        // let linkPath = "\(binDir)/\(exe)"
-
-        // do {
-        //     try FileManager.default.removeItem(atPath: linkPath)
-        // } catch let err as NSError
-        //   where err.domain == NSCocoaErrorDomain && err.code == NSFileNoSuchFileError {
-        // }
-
-        // // create a new symlink into sbm-bin
-        // let builtPath = dirURL
-        //     .appendingPathComponent(".build")
-        //     .appendingPathComponent("release")
-        //     .appendingPathComponent(exe)
-        //     .path
-        // try FileManager.default.createSymbolicLink(
-        //     atPath: linkPath,
-        //     withDestinationPath: builtPath
-        // )
-
-        // // write (or overwrite) metadata
-        // let metaURL = URL(fileURLWithPath: binDir)
-        //     .appendingPathComponent("\(exe).metadata")
-        // let meta    = "ProjectRootPath=\(expanded)\n"
-        // try meta.write(to: metaURL,
-        //                atomically: true,
-        //                encoding: .utf8)
-        // print("    [DEPLOY] \(exe) → \(builtPath)".ansi(.brightBlack))
-        // print("    [META] Wrote metadata: \(metaURL.path)".ansi(.brightBlack))
     }
 }
 
