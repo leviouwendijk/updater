@@ -44,6 +44,42 @@ struct Updater: ParsableCommand {
     }
 }
 
+// func executeSBM(_ local: Bool = false) throws {
+//     do {
+//         let home = FileManager.default.homeDirectoryForCurrentUser.path()
+//         let process = Process()
+//         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+
+//         let base = "source ~/.zprofile && \(home)/sbm-bin/sbm -r"
+//         let cmd = local ? base + " -l" : base
+
+//         process.arguments = ["-c", cmd]
+        
+//         let outputPipe = Pipe()
+//         let errorPipe = Pipe()
+//         process.standardOutput = outputPipe
+//         process.standardError = errorPipe
+
+//         try process.run()
+//         process.waitUntilExit()
+
+//         let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+//         let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+//         let outputString = String(data: outputData, encoding: .utf8) ?? ""
+//         let errorString = String(data: errorData, encoding: .utf8) ?? ""
+
+//         if process.terminationStatus == 0 {
+//             print("sbm executed successfully:\n\(outputString)")
+//         } else {
+//             print("Error running sbm:\n\(errorString)")
+//             throw NSError(domain: "sbm", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: errorString])
+//         }
+//     } catch {
+//         print("Error running commands: \(error)")
+//         throw error
+//     }
+// }
+
 func update(repo: RepoEntry, keepLocal: Bool) throws {
     let raw = repo.path as NSString
     let expanded = raw.expandingTildeInPath
@@ -58,7 +94,7 @@ func update(repo: RepoEntry, keepLocal: Bool) throws {
     let base = "sbm"
     var cmdArgs = ["-r"]
     if repo.type == .application || keepLocal {
-        cmdArgs.append("-l")
+        cmdArgs.append(" -l")
     }
 
     try run(base, args: cmdArgs, in: dirURL)
