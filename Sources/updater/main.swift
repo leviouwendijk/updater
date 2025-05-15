@@ -119,9 +119,9 @@ func update(repo entry: RepoEntry) throws {
 
         do {
             try run("swift", args: ["build", "-c", "release", "--target", exe], in: dirURL)
-            print("    [SUCCESS] \(exe) built".ansi(.green))
+            print("    [SUCCESS] ".ansi(.green) + "\(exe)".ansi(.green, .bold) + " built".ansi(.green))
         } catch {
-            print("    [FAIL] \(exe) build failed: \(error.localizedDescription)".ansi(.red))
+            print("    [FAIL] ".ansi(.red) + "\(exe)".ansi(.red, .bold) + " build failed: \(error.localizedDescription)".ansi(.red))
             continue
         }
 
