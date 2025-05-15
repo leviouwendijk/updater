@@ -114,7 +114,6 @@ func update(repo entry: RepoEntry) throws {
         in: dirURL)
         .trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
 
-    // use porcelain to catch *all* working‐tree changes (incl. untracked)
     let status = try run("git", args: ["status","--porcelain"], in: dirURL)
     let hasUncommitted = !status.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
@@ -178,8 +177,6 @@ func update(repo entry: RepoEntry) throws {
             let meta = "ProjectRootPath=\(expanded)\n"
             try meta.write(to: metaURL, atomically: true, encoding: .utf8)
             print("    [META] Wrote metadata: \(metaURL.path)")
-
-            continue
         }
     }
 
@@ -188,23 +185,34 @@ func update(repo entry: RepoEntry) throws {
         let appBundleURL = dirURL.appendingPathComponent("\(repoName).app")
 
         guard FileManager.default.fileExists(atPath: appBundleURL.path) else {
-            print("No file at \(appBundleURL.path())")
+            print("    No \(repoName).app found at \(appBundleURL.path); skipping launch.")
             return
         }
 
-        _ = try? run(
-            "/usr/bin/killall",
-            args: ["-TERM", repoName],
-            in: dirURL
-        )
-        print("    [STOPPED] \(repoName) if running")
+        let pgrep = Process()
+        pgrep.executableURL       = URL(fileURLWithPath: "/usr/bin/pgrep")
+        pgrep.arguments           = ["-x", repoName]
+        pgrep.currentDirectoryURL = dirURL
+        try pgrep.run(); pgrep.waitUntilExit()
+        let isRunning = (pgrep.terminationStatus == 0)
 
-        try run(
-            "/usr/bin/open",
-            args: [appBundleURL.path],
-            in: dirURL
-        )
-        print("    [LAUNCHED] \(repoName).app")
+        if isRunning {
+            let killall = Process()
+            killall.executableURL       = URL(fileURLWithPath: "/usr/bin/killall")
+            killall.arguments           = ["-TERM", repoName]
+            killall.currentDirectoryURL = dirURL
+            try killall.run(); killall.waitUntilExit()
+            print("    [STOPPED] \(repoName)")
+
+            let opener = Process()
+            opener.executableURL       = URL(fileURLWithPath: "/usr/bin/open")
+            opener.arguments           = [appBundleURL.path]
+            opener.currentDirectoryURL = dirURL
+            try opener.run()
+            print("    [LAUNCHED] \(repoName).app")
+        } else {
+            print("    [NOT RUNNING] \(repoName)")
+        }
     }
 
     print("")
