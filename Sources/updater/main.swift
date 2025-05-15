@@ -11,109 +11,12 @@ struct RepoEntry: Codable {
     let type: RepoType?
 }
 
-struct Updater: ParsableCommand {
-    static let configuration = CommandConfiguration(
-        abstract: "Run git+swift updates across multiple repos."
-    )
-
-    private static let defaultConfigPath: String = {
-        guard let url = Bundle.module.url(forResource: "repos", withExtension: "json") else {
-            fatalError("Couldn’t find repos.json in bundle resources")
-        }
-        return url.path
-    }()
-
-    @Option(name: [.short, .long], help: "Path to your JSON config (default: bundled repos.json)")
-    var config: String = Updater.defaultConfigPath
-
-    func run() throws {
-        let url = URL(fileURLWithPath: config).resolvingSymlinksInPath()
-        let data = try Data(contentsOf: url)
-        let repos = try JSONDecoder().decode([RepoEntry].self, from: data)
-
-        for entry in repos {
-            do {
-                try update(repo: entry)
-            } catch {
-                fputs("Failed updating \(entry.path): \(error.localizedDescription)\n", stderr)
-            }
-        }
+struct PackageDump: Decodable {
+    struct Target: Decodable {
+        let name: String
+        let type: String
     }
-}
-
-
-func update(repo: RepoEntry) throws {
-    let raw = repo.path as NSString
-    let expanded = raw.expandingTildeInPath
-    let dirURL = URL(fileURLWithPath: expanded)
-
-    var local: Bool = false
-    if repo.type == .application {
-        local = true
-    }
-
-    print("\n    Updating \(expanded)…")
-
-    try run("git", args: ["reset", "--hard", "HEAD"], in: dirURL)
-    try run("git", args: ["pull", "origin", "master"], in: dirURL)
-    try run("swift", args: ["package", "update"], in: dirURL)
-    
-    do {
-        try executeSBM(local)
-    } catch {
-        print(error)
-    }
-
-    // let base = "sbm"
-    // var cmdArgs = ["-r"]
-    // if repo.type == .application || keepLocal {
-    //     cmdArgs.append(" -l")
-    // }
-
-    // let home = FileManager.default.homeDirectoryForCurrentUser.path()
-    // // let base = "source ~/.zprofile && \(home)/sbm-bin/sbm -r"
-    // let base = "\(home)/sbm-bin/sbm -r"
-    // let cmd = local ? base + " -l" : base
-
-    // let cmdArgs = ["-c", cmd]
-
-    // try run(base, args: cmdArgs, in: dirURL)
-}
-
-func executeSBM(_ local: Bool = false) throws {
-    do {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path()
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-
-        let base = "source ~/.zprofile && \(home)sbm-bin/sbm -r"
-        let cmd = local ? base + " -l" : base
-
-        process.arguments = ["-c", cmd]
-        
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
-
-        try process.run()
-        process.waitUntilExit()
-
-        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        let outputString = String(data: outputData, encoding: .utf8) ?? ""
-        let errorString = String(data: errorData, encoding: .utf8) ?? ""
-
-        if process.terminationStatus == 0 {
-            print("sbm executed successfully:\n\(outputString)")
-        } else {
-            print("Error running sbm:\n\(errorString)")
-            throw NSError(domain: "sbm", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: errorString])
-        }
-    } catch {
-        print("Error running commands: \(error)")
-        throw error
-    }
+    let targets: [Target]
 }
 
 @discardableResult
@@ -147,6 +50,112 @@ func run(_ cmd: String, args: [String], in cwd: URL) throws -> String {
 
     print(out.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines))
     return out
+}
+
+func dumpPackageJSON(in repo: URL) throws -> Data {
+    let task = Process()
+    task.executableURL       = URL(fileURLWithPath: "/usr/bin/env")
+    task.arguments           = ["swift", "package", "dump-package"]
+    task.currentDirectoryURL = repo
+
+    let pipe = Pipe()
+    task.standardOutput = pipe
+    try task.run()
+    task.waitUntilExit()
+
+    guard task.terminationStatus == 0 else {
+        throw NSError(
+          domain: "UpdaterError",
+          code: Int(task.terminationStatus),
+          userInfo: nil
+        )
+    }
+
+    return pipe.fileHandleForReading.readDataToEndOfFile()
+}
+
+func findExecutableTargets(in repo: URL) throws -> [String] {
+    let data = try dumpPackageJSON(in: repo)
+    let dump = try JSONDecoder().decode(PackageDump.self, from: data)
+    return dump.targets
+       .filter { $0.type == "executable" }
+       .map { $0.name }
+}
+
+func update(repo entry: RepoEntry) throws {
+    let raw      = entry.path as NSString
+    let expanded = raw.expandingTildeInPath
+    let dirURL   = URL(fileURLWithPath: expanded)
+    let home     = FileManager.default.homeDirectoryForCurrentUser.path
+
+    print("\n    Updating \(expanded)…")
+    try run("git",   args: ["reset","--hard","HEAD"], in: dirURL)
+    try run("git",   args: ["pull","origin","master"], in: dirURL)
+    try run("swift", args: ["package","update"],       in: dirURL)
+
+    let executables = try findExecutableTargets(in: dirURL)
+    guard !executables.isEmpty else {
+        print("No executable targets found.")
+        return
+    }
+
+    let binDir = "\(home)/sbm-bin"
+    try FileManager.default
+        .createDirectory(atPath: binDir, withIntermediateDirectories: true)
+
+    for exe in executables {
+        if entry.type == .application {
+            print("    Building locally: \(exe)…")
+            try run("swift",
+                    args: ["build","-c","release","--target",exe],
+                    in: dirURL)
+        } else {
+            let outPath = "\(binDir)/\(exe)"
+            print("    Building & deploying: \(exe) → \(outPath)…")
+            try run("swift", args: [
+                "build","-c","release",
+                "--target",exe,
+                "-Xswiftc","-o",
+                "-Xswiftc",outPath
+            ], in: dirURL)
+
+            let meta = "ProjectRootPath=\(expanded)\n"
+            let metaURL = URL(fileURLWithPath: binDir).appendingPathComponent("\(exe).metadata")
+
+            try meta.write(to: metaURL, atomically: true, encoding: .utf8)
+            print("    Wrote metadata: \(metaURL.path)")
+        }
+    }
+}
+
+struct Updater: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Run git+swift updates across multiple repos."
+    )
+
+    private static let defaultConfigPath: String = {
+        guard let url = Bundle.module.url(forResource: "repos", withExtension: "json") else {
+            fatalError("Couldn’t find repos.json in bundle resources")
+        }
+        return url.path
+    }()
+
+    @Option(name: [.short, .long], help: "Path to your JSON config (default: bundled repos.json)")
+    var config: String = Updater.defaultConfigPath
+
+    func run() throws {
+        let url = URL(fileURLWithPath: config).resolvingSymlinksInPath()
+        let data = try Data(contentsOf: url)
+        let repos = try JSONDecoder().decode([RepoEntry].self, from: data)
+
+        for entry in repos {
+            do {
+                try update(repo: entry)
+            } catch {
+                fputs("Failed updating \(entry.path): \(error.localizedDescription)\n", stderr)
+            }
+        }
+    }
 }
 
 Updater.main()
