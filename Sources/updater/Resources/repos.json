@@ -18,5 +18,9 @@
     {
         "path": "~/myworkdir/programming/applications/Picker",
         "type": "application"
+    },
+    { 
+        "path": "~/myworkdir/programming/scripts/travel-quote",
+        "type": "script"
     }
 ]
