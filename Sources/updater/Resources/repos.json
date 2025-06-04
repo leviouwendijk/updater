@@ -4,6 +4,10 @@
         "type": "script"
     },
     { 
+        "path": "~/myworkdir/programming/resources",
+        "type": "resource"
+    },
+    { 
         "path": "~/myworkdir/programming/scripts/numbers-parser",
         "type": "script"
     },

@@ -5,6 +5,18 @@ import plate
 enum RepoType: String, Codable {
     case script
     case application
+    case resource
+}
+
+func isSwiftExecutable(repoType: RepoType) -> Bool {
+    switch repoType {
+        case .script:
+        return true
+        case .application:
+        return true
+        case .resource:
+        return false
+    }
 }
 
 struct RepoEntry: Codable {
@@ -155,60 +167,63 @@ func update(repo entry: RepoEntry) throws {
     print("\n    Updating \(expanded)…")
     try run("git",   args: ["reset","--hard","HEAD"], in: dirURL)
     try run("git",   args: ["pull","origin","master"], in: dirURL)
-    try run("swift", args: ["package","update"],       in: dirURL)
 
-    try run("swift", args: ["build", "-c", "release"], in: dirURL)
-    print("    [SUCCESS] build completed".ansi(.green))
+    if isSwiftExecutable(repoType: entry.type ?? .resource) {
+        try run("swift", args: ["package","update"],       in: dirURL)
 
-    let executables = try findExecutableTargets(in: dirURL)
-    guard !executables.isEmpty else {
-        print("No executable targets found.".ansi(.yellow))
-        return
-    }
+        try run("swift", args: ["build", "-c", "release"], in: dirURL)
+        print("    [SUCCESS] build completed".ansi(.green))
 
-    let binDir = "\(home)/sbm-bin"
-        .replacingOccurrences(of: "//", with: "/")
-
-    try FileManager.default
-        .createDirectory(atPath: binDir, withIntermediateDirectories: true)
-
-    for exe in executables {
-        let local = (entry.type == .application)
-
-        if local {
-            print("    [COMPLETED LOCAL] Repository now contains: ".ansi(.green) + "\(exe)".ansi(.green, .bold))
-        } else {
-            print("    Moving: \(exe) → \(binDir)/\(exe)…")
-
-            let builtPath = dirURL
-               .appendingPathComponent(".build")
-               .appendingPathComponent("release")
-               .appendingPathComponent(exe)
-               .path
-            let destPath = "\(binDir)/\(exe)"
-
-            if !FileManager.default.fileExists(atPath: builtPath) {
-                print("    [ERROR] Binary not found in build directory ".ansi(.red) + "\(exe)".ansi(.red, .bold))
-                print("    Inspect path: \(builtPath)".ansi(.red))
-                continue
-            }
-
-            try? FileManager.default.removeItem(atPath: destPath)
-            try FileManager.default.moveItem(atPath: builtPath, toPath: destPath)
-            print("    [MOVE] \(exe) → \(destPath)")
-
-            print("    [COMPLETED MOVE] sbm-bin/ now contains ".ansi(.green) + "\(exe)".ansi(.green, .bold))
-
-            let metaURL = URL(fileURLWithPath: binDir)
-               .appendingPathComponent("\(exe).metadata")
-            let meta = "ProjectRootPath=\(expanded)\n"
-            try meta.write(to: metaURL, atomically: true, encoding: .utf8)
-            print("    [META] Wrote metadata: \(metaURL.path)")
+        let executables = try findExecutableTargets(in: dirURL)
+        guard !executables.isEmpty else {
+            print("No executable targets found.".ansi(.yellow))
+            return
         }
-    }
 
-    if entry.type == .application {
-        try relaunchApplication(dirURL)
+        let binDir = "\(home)/sbm-bin"
+            .replacingOccurrences(of: "//", with: "/")
+
+        try FileManager.default
+            .createDirectory(atPath: binDir, withIntermediateDirectories: true)
+
+        for exe in executables {
+            let local = (entry.type == .application)
+
+            if local {
+                print("    [COMPLETED LOCAL] Repository now contains: ".ansi(.green) + "\(exe)".ansi(.green, .bold))
+            } else {
+                print("    Moving: \(exe) → \(binDir)/\(exe)…")
+
+                let builtPath = dirURL
+                   .appendingPathComponent(".build")
+                   .appendingPathComponent("release")
+                   .appendingPathComponent(exe)
+                   .path
+                let destPath = "\(binDir)/\(exe)"
+
+                if !FileManager.default.fileExists(atPath: builtPath) {
+                    print("    [ERROR] Binary not found in build directory ".ansi(.red) + "\(exe)".ansi(.red, .bold))
+                    print("    Inspect path: \(builtPath)".ansi(.red))
+                    continue
+                }
+
+                try? FileManager.default.removeItem(atPath: destPath)
+                try FileManager.default.moveItem(atPath: builtPath, toPath: destPath)
+                print("    [MOVE] \(exe) → \(destPath)")
+
+                print("    [COMPLETED MOVE] sbm-bin/ now contains ".ansi(.green) + "\(exe)".ansi(.green, .bold))
+
+                let metaURL = URL(fileURLWithPath: binDir)
+                   .appendingPathComponent("\(exe).metadata")
+                let meta = "ProjectRootPath=\(expanded)\n"
+                try meta.write(to: metaURL, atomically: true, encoding: .utf8)
+                print("    [META] Wrote metadata: \(metaURL.path)")
+            }
+        }
+
+        if entry.type == .application {
+            try relaunchApplication(dirURL)
+        }
     }
 
     print("")
