@@ -26,7 +26,6 @@ let package = Package(
                 .product(name: "Executable", package: "Executable"),
             ],
             exclude: [
-                "main.swift.bak"
             ],
             resources: [
                 .process("Resources"),

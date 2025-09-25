@@ -1,5 +1,5 @@
 {
-  "originHash" : "0c61becc0d52e2080503c053712a15874a1301d1f681f8e938c20effe6a10b51",
+  "originHash" : "128ff45718cd3f7b7b9de7be3c71eff9783caec74671dd0a0971e8f83e429bc9",
   "pins" : [
     {
       "identity" : "executable",
@@ -25,7 +25,7 @@
       "location" : "https://github.com/leviouwendijk/Interfaces.git",
       "state" : {
         "branch" : "master",
-        "revision" : "d574d6382f800bde6dfa9f49810d2fce6b919c8f"
+        "revision" : "f4d4a3930d9404bfb1435d50ce8cbd253c0ea1c8"
       }
     },
     {
