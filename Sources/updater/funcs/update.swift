@@ -1,5 +1,6 @@
 import Foundation
 import Interfaces
+import plate
 
 @inline(__always)
 private func isDirty(_ dir: URL) async throws -> Bool {
@@ -8,7 +9,7 @@ private func isDirty(_ dir: URL) async throws -> Bool {
     return !s.isEmpty
 }
 
-public func update(entry: RepoEntry) async throws {
+public func update(entry: RepoEntry, safe: Bool) async throws {
     let expanded = (entry.path as NSString).expandingTildeInPath
     let dirURL   = URL(fileURLWithPath: expanded)
 
@@ -24,9 +25,20 @@ public func update(entry: RepoEntry) async throws {
     print("    Upstream: \(remote)/\(branch)  (ahead=\(div.ahead), behind=\(div.behind))")
 
     if try await isDirty(dirURL) {
-        print("    Working tree is dirty. Aborting to avoid losing changes.".ansi(.red))
-        print("    Hint: commit/stash or run: git reset --hard && git pull --ff-only \(remote) \(branch)")
-        return
+        let severity: ANSIColor = safe ? .red : .yellow
+        print("    Working tree is dirty. Aborting to avoid losing changes.".ansi(severity))
+
+        if safe {
+            printi("Safe mode enabled in run".ansi(.yellow))
+
+            print()
+            print("    Aborting to avoid losing changes.".ansi(.red))
+            print("    Hint: commit/stash or run: git reset --hard && git pull --ff-only \(remote) \(branch)")
+            print()
+
+            printi("Leaving repository scope")
+            return
+        }
     }
 
     print("    Updating…")
