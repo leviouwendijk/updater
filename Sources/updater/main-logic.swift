@@ -41,10 +41,19 @@ public func sh(
     _ exec: Shell.Exec = .zsh,
     _ program: String,
     _ args: [String],
-    cwd: URL
+    cwd: URL,
+    redactions: [String] = []
 ) async throws -> Shell.Result {
     var opt = Shell.Options()
     opt.cwd = cwd
+    opt.redactions = redactions
+    opt.teeToStdout = true
+    opt.teeToStderr = true
+
+    // Optional: per-chunk callbacks
+    // opt.onStdoutChunk = { _ in }
+    // opt.onStderrChunk = { _ in }
+
     return try await Shell(exec).run("/usr/bin/env", [program] + args, options: opt)
 }
 
@@ -59,51 +68,12 @@ public func repositoryIsOutdated(_ directoryURL: URL) async throws -> Bool {
     return localHead != remoteHead
 }
 
-// private func fallbackBuildAndDeploy(
-//     in dirURL: URL,
-//     repoType: RepoType?
-// ) async throws {
-//     // Update deps and build
-//     _ = try await sh(.zsh, "swift", ["package","update"], cwd: dirURL)
-//     let config = Executable.Build.Config(mode: .release)
-//     _ = try await Executable.Build.build(at: dirURL, config: config)
-//     print("    [SUCCESS] build completed".ansi(.green))
-
-//     // Find executable targets
-//     let executables = (try? await Executable.Targets.executableNames(in: dirURL)) ?? []
-//     guard !executables.isEmpty else {
-//         print("    No executable targets found.".ansi(.yellow))
-//         return
-//     }
-
-//     // application type = keep local (no deploy), else deploy to ~/sbm-bin
-//     if repoType == .application {
-//         if let exe = executables.first {
-//             print("    [COMPLETED LOCAL] Repository now contains: ".ansi(.green) + exe.ansi(.green, .bold))
-//         }
-//         return
-//     }
-
-//     let binDir = defaultSBMBin()
-//     let dest = URL(fileURLWithPath: binDir)
-//     try Executable.Deploy.selected(
-//         from: dirURL,
-//         config: config,
-//         to: dest,
-//         targets: executables,
-//         perTargetDestinations: [:]
-//     )
-// }
-
 private func defaultSBMBin() -> String {
     let home = FileManager.default.homeDirectoryForCurrentUser.path
     let path = "\(home)/sbm-bin".replacingOccurrences(of: "//", with: "/")
     try? FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
     return path
 }
-
-// MARK: - Relaunch for applications
-
 
 private func relaunchApplication(_ directoryURL: URL, target: String? = nil) async throws {
     let repoName    = directoryURL.lastPathComponent                 // e.g. "Responder"
@@ -200,13 +170,20 @@ private func relaunchApplication(_ directoryURL: URL, target: String? = nil) asy
 
 
 private func runCompileSpec(_ spec: CompileSpec, in dirURL: URL) async throws {
-    // Use Interfaces.Shell so we get streaming, timeouts, redactions if needed.
-    var opt = Shell.Options(); opt.cwd = dirURL
-    let args = spec.arguments
-    let res = try await Shell(.zsh).run("/usr/bin/env", [spec.process] + args, options: opt)
+    let cmdLine = (["/usr/bin/env", spec.process] + spec.arguments).map {
+        $0.isEmpty ? "''" : "'" + $0.replacingOccurrences(of: "'", with: "'\"'\"'") + "'"
+    }.joined(separator: " ")
+
+    print("    → \(cmdLine)")
+
+    let res = try await sh(.zsh, spec.process, spec.arguments, cwd: dirURL)
+
     if let code = res.exitCode, code != 0 {
         throw ValidationError("Compile process \(spec.process) exited with \(code)")
     }
+
+    let ok = "Compile: " + "Ok".ansi(.green, .bold) + res.shortSummary
+    print(ok.indent())
 }
 
 private func update(entry: RepoEntry) async throws {
@@ -224,9 +201,7 @@ private func update(entry: RepoEntry) async throws {
     _ = try await sh(.zsh, "git", ["pull","origin","master"], cwd: dirURL)
 
     if let compile = entry.compile {
-        print("    Recompiling…")
         try await runCompileSpec(compile, in: dirURL)
-        print("    Compile Ok".ansi(.green))
     }
 
     // } else {
@@ -270,7 +245,7 @@ struct Updater: AsyncParsableCommand {
                 fputs("Failed updating \(entry.path): \(e)\n", stderr)
 
                 // full dump
-                fputs(e.pretty() + "\n", stderr)
+                fputs(e.localizedDescription + "\n", stderr)
             } catch {
                 fputs("Failed updating \(entry.path): \(String(describing: error))\n", stderr)
             }
