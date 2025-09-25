@@ -1,7 +1,11 @@
 [
     { 
         "path": "~/myworkdir/programming/scripts/updater",
-        "type": "script"
+        "type": "script",
+        "compile": {
+            "process": "sbm",
+            "arguments": []
+        }
     },
     { 
         "path": "~/myworkdir/programming/resources",
@@ -9,22 +13,70 @@
     },
     { 
         "path": "~/myworkdir/programming/scripts/numbers-parser",
-        "type": "script"
+        "type": "script",
+        "compile": {
+            "process": "sbm",
+            "arguments": []
+        }
     },
     { 
         "path": "~/myworkdir/programming/scripts/mailer",
-        "type": "script"
+        "type": "script",
+        "compile": {
+            "process": "sbm",
+            "arguments": []
+        }
     },
     {
         "path": "~/myworkdir/programming/applications/Responder",
-        "type": "application"
+        "type": "application",
+        "compile": {
+            "process": "sbm",
+            "arguments": ["--skip-targets", "Responder"]
+        },
+        "relaunch": {
+            "enable": true,
+            "target": "infer"
+        }
     },
     {
         "path": "~/myworkdir/programming/applications/Picker",
-        "type": "application"
+        "type": "application",
+        "compile": {
+            "process": "sbm",
+            "arguments": ["--skip-targets", "Picker"]
+        },
+        "relaunch": {
+            "enable": true,
+            "target": "infer"
+        }
     },
     { 
         "path": "~/myworkdir/programming/scripts/travel-quote",
-        "type": "script"
+        "type": "script",
+        "compile": {
+            "process": "sbm",
+            "arguments": []
+        }
+    },
+    { 
+        "path": "~/myworkdir/programming/scripts/swift-build-manager",
+        "type": "script",
+        "compile": {
+            "process": "sbm",
+            "arguments": []
+        }
+    },
+    {
+        "path": "~/myworkdir/programming/applications/DiskMapper",
+        "type": "application",
+        "compile": {
+            "process": "sbm",
+            "arguments": ["--targets", "diskmap"]
+        },
+        "relaunch": {
+            "enable": true,
+            "target": "infer"
+        }
     }
 ]

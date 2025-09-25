@@ -1,13 +1,49 @@
 {
-  "originHash" : "838ace1d58f3899eeadab16ee07bb3143b313f5a4eeb17606bc7426242850f86",
+  "originHash" : "1b165c3dca14f557c831d78eecc81d90ef7503731613c626a2744b334fd1c9f4",
   "pins" : [
+    {
+      "identity" : "executable",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Executable.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "97376770941e7e8e018b83d6a3aeff676fbb2273"
+      }
+    },
+    {
+      "identity" : "extensions",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Extensions.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "3310d463b1bc509cccd8e75f0acc221e153f5dff"
+      }
+    },
+    {
+      "identity" : "interfaces",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Interfaces.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "bd39de6d52da6835ac97d78b2ee674d0101c39a6"
+      }
+    },
     {
       "identity" : "plate",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/leviouwendijk/plate.git",
       "state" : {
         "branch" : "master",
-        "revision" : "3318344c47704ddcdaefb8e93a1add5f370c56d2"
+        "revision" : "1a04bbb14ac032ebce0ae3bb2f71aa4d9c10712a"
+      }
+    },
+    {
+      "identity" : "structures",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Structures.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "ee6c6836b897caff5a2f9111351976264a043076"
       }
     },
     {
@@ -15,8 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-argument-parser.git",
       "state" : {
-        "revision" : "41982a3656a71c768319979febd796c6fd111d5c",
-        "version" : "1.5.0"
+        "revision" : "309a47b2b1d9b5e991f36961c983ecec72275be3",
+        "version" : "1.6.1"
       }
     }
   ],
