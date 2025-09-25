@@ -103,6 +103,12 @@ private func defaultSBMBin() -> String {
 
 // MARK: - Relaunch for applications
 
+private extension String {
+    var trimAppAppendixForPgrep: String {
+        return self.replacingOccurrences(of: ".app", with: "")
+    }
+}
+
 private func relaunchApplication(_ directoryURL: URL, target: String? = nil) async throws {
     let repoName     = directoryURL.lastPathComponent
     let inferredApp  = repoName + ".app"
@@ -112,6 +118,7 @@ private func relaunchApplication(_ directoryURL: URL, target: String? = nil) asy
     }
 
     let targetApp = isInferredSetting() ? inferredApp : (target ?? inferredApp)
+    let targetProcess = targetApp.trimAppAppendixForPgrep
 
     let appBundleURL = directoryURL.appendingPathComponent("\(targetApp)")
 
@@ -123,7 +130,7 @@ private func relaunchApplication(_ directoryURL: URL, target: String? = nil) asy
 
     // pgrep
     var opt = Shell.Options(); opt.cwd = directoryURL
-    let p = try await Shell(.path("/usr/bin/pgrep")).run("/usr/bin/pgrep", ["-x", targetApp], options: opt)
+    let p = try await Shell(.path("/usr/bin/pgrep")).run("/usr/bin/pgrep", ["-x", targetProcess], options: opt)
     let pidString = p.stdoutText().trimmingCharacters(in: .whitespacesAndNewlines)
     let isRunning = (p.exitCode == 0) && !pidString.isEmpty
 
@@ -134,15 +141,15 @@ private func relaunchApplication(_ directoryURL: URL, target: String? = nil) asy
         // print("    [STOPPED] \(repoName)")
 
         // checking if it works with .app
-        print("    [RUNNING] \(targetApp)".ansi(.yellow))
+        print("    [RUNNING] \(targetProcess)".ansi(.yellow))
         print("    [PROCESS ID] \(pidString)".ansi(.brightBlack))
-        _ = try await sh(.path("/usr/bin/killall"), "/usr/bin/killall", ["-TERM", targetApp], cwd: directoryURL)
-        print("    [STOPPED] \(targetApp)")
+        _ = try await sh(.path("/usr/bin/killall"), "/usr/bin/killall", ["-TERM", targetProcess], cwd: directoryURL)
+        print("    [STOPPED] \(targetProcess)")
         
         _ = try await sh(.path("/usr/bin/open"), "/usr/bin/open", [appBundleURL.path], cwd: directoryURL)
         print("    [RE-LAUNCHED] \(targetApp)".ansi(.green))
     } else {
-        print("    [NOT RUNNING] \(targetApp)")
+        print("    [NOT RUNNING] \(targetProcess)")
     }
 }
 
