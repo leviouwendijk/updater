@@ -224,8 +224,11 @@ private func update(entry: RepoEntry) async throws {
     _ = try await sh(.zsh, "git", ["pull","origin","master"], cwd: dirURL)
 
     if let compile = entry.compile {
+        print("    Recompiling…")
         try await runCompileSpec(compile, in: dirURL)
+        print("    Compile Ok".ansi(.green))
     }
+
     // } else {
     //     try await fallbackBuildAndDeploy(in: dirURL, repoType: entry.type ?? .resource)
     // }
@@ -236,7 +239,6 @@ private func update(entry: RepoEntry) async throws {
             try await relaunchApplication(dirURL, target: entry.relaunch?.target)
         }
     }
-
     print("")
 }
 
