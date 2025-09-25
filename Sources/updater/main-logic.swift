@@ -210,8 +210,14 @@ struct Updater: AsyncParsableCommand {
         for entry in repos {
             do {
                 try await update(entry: entry)
+            } catch let e as Shell.Error {
+                // concise summary
+                fputs("Failed updating \(entry.path): \(e)\n", stderr)
+
+                // full dump
+                fputs(e.pretty() + "\n", stderr)
             } catch {
-                fputs("Failed updating \(entry.path): \(error.localizedDescription)\n".ansi(.red), stderr)
+                fputs("Failed updating \(entry.path): \(String(describing: error))\n", stderr)
             }
         }
     }
