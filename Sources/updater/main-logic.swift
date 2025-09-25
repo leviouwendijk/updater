@@ -32,7 +32,7 @@ struct RepoEntry: Codable {
     let path: String
     let type: RepoType?          
     let compile: CompileSpec?    
-    var relaunch: RelaunchSpec = RelaunchSpec()
+    var relaunch: RelaunchSpec?
 }
 
 @discardableResult
@@ -178,8 +178,10 @@ private func update(entry: RepoEntry) async throws {
     // }
 
     // if entry.type == .application {
-    if entry.relaunch.enable {
-        try await relaunchApplication(dirURL, target: entry.relaunch.target)
+    if let relaunch = entry.relaunch?.enable {
+        if relaunch {
+            try await relaunchApplication(dirURL, target: entry.relaunch?.target)
+        }
     }
 
     print("")
