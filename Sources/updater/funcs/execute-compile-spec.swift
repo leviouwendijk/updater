@@ -16,7 +16,7 @@ public func executeCompileSpec(_ spec: CompileSpec, in dirURL: URL) async throws
         throw ArgumentParser.ValidationError("Compile process \(spec.process) exited with \(code)")
     }
 
-    let ok = "Compile: " + "Ok".ansi(.green, .bold) + res.shortSummary
+    let ok = "Compile: " + "Ok".ansi(.green, .bold) + " " + res.shortSummary
     let div = String(repeating: "-", count: 50)
     print(div)
     print(ok.indent())
