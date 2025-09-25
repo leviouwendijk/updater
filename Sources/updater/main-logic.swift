@@ -104,56 +104,6 @@ private func defaultSBMBin() -> String {
 
 // MARK: - Relaunch for applications
 
-private extension String {
-    var trimAppAppendixForPgrep: String {
-        return self.replacingOccurrences(of: ".app", with: "")
-    }
-}
-
-// private func relaunchApplication(_ directoryURL: URL, target: String? = nil) async throws {
-//     let repoName     = directoryURL.lastPathComponent
-//     let inferredApp  = repoName + ".app"
-
-//     func isInferredSetting() -> Bool {
-//         return target == "infer"
-//     }
-
-//     let targetApp = isInferredSetting() ? inferredApp : (target ?? inferredApp)
-//     let targetProcess = targetApp.trimAppAppendixForPgrep
-
-//     let appBundleURL = directoryURL.appendingPathComponent("\(targetApp)")
-
-//     let fm = FileManager.default
-//     guard fm.fileExists(atPath: appBundleURL.path) else {
-//         print("    No \(targetApp) found at \(appBundleURL.path); skipping launch.")
-//         return
-//     }
-
-//     // pgrep
-//     var opt = Shell.Options(); opt.cwd = directoryURL
-//     let p = try await Shell(.path("/usr/bin/pgrep")).run("/usr/bin/pgrep", ["-x", targetProcess], options: opt)
-//     let pidString = p.stdoutText().trimmingCharacters(in: .whitespacesAndNewlines)
-//     let isRunning = (p.exitCode == 0) && !pidString.isEmpty
-
-//     if isRunning {
-//         // print("    [RUNNING] \(repoName)".ansi(.yellow))
-//         // print("    [PROCESS ID] \(pidString)".ansi(.brightBlack))
-//         // _ = try await sh(.path("/usr/bin/killall"), "/usr/bin/killall", ["-TERM", repoName], cwd: directoryURL)
-//         // print("    [STOPPED] \(repoName)")
-
-//         // checking if it works with .app
-//         print("    [RUNNING] \(targetProcess)".ansi(.yellow))
-//         print("    [PROCESS ID] \(pidString)".ansi(.brightBlack))
-//         _ = try await sh(.path("/usr/bin/killall"), "/usr/bin/killall", ["-TERM", targetProcess], cwd: directoryURL)
-//         print("    [STOPPED] \(targetProcess)")
-        
-//         _ = try await sh(.path("/usr/bin/open"), "/usr/bin/open", [appBundleURL.path], cwd: directoryURL)
-//         print("    [RE-LAUNCHED] \(targetApp)".ansi(.green))
-//     } else {
-//         print("    [NOT RUNNING] \(targetProcess)")
-//     }
-// }
-
 
 private func relaunchApplication(_ directoryURL: URL, target: String? = nil) async throws {
     let repoName    = directoryURL.lastPathComponent                 // e.g. "Responder"
@@ -239,11 +189,13 @@ private func relaunchApplication(_ directoryURL: URL, target: String? = nil) asy
         }
     }
 
-    // 3) Relaunch via LaunchServices
-    var optOpen = Shell.Options(); optOpen.cwd = directoryURL
-    _ = try await Shell(.path("/usr/bin/open"))
+    if terminated {
+        var optOpen = Shell.Options(); optOpen.cwd = directoryURL
+        _ = try await Shell(.path("/usr/bin/open"))
         .run("/usr/bin/open", [appBundleURL.path], options: optOpen)
-    print("    [RE-LAUNCHED] \(appBundleName)".ansi(.green))
+
+        print("    [RE-LAUNCHED] \(appBundleName)".ansi(.green))
+    }
 }
 
 
