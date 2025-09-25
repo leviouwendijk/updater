@@ -214,5 +214,3 @@ struct Updater: AsyncParsableCommand {
         }
     }
 }
-
-Updater.main()
