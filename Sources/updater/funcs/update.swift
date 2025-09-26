@@ -61,7 +61,7 @@ public func update(entry: RepoEntry, safe: Bool) async throws {
     if let compile = entry.compile {
         print("    Recompiling…")
         try await executeCompileSpec(compile, in: dirURL)
-        print("    Compile Ok".ansi(.green))
+        // print("    Compile Ok".ansi(.green))
     }
 
     if entry.relaunch?.enable == true {
