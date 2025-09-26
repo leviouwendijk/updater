@@ -59,9 +59,20 @@ public func update(entry: RepoEntry, safe: Bool) async throws {
     }
 
     if let compile = entry.compile {
-        print("    Recompiling…")
-        try await executeCompileSpec(compile, in: dirURL)
-        // print("    Compile Ok".ansi(.green))
+        let url = try BuildObjectConfiguration.traverseForBuildObjectPkl(from: dirURL)
+        let cfg = try BuildObjectConfiguration(from: url)
+        let b = cfg.versions.built
+        let r = cfg.versions.repository
+        let builtIsBehind = (b.major, b.minor, b.patch) < (r.major, r.minor, r.patch)
+
+        if builtIsBehind {
+            printi("Built version is now behind repository recompiling…")
+            printi("built:      \(cfg.versions.built.string())", times: 2)
+            printi("repository: \(cfg.versions.repository.string())", times: 2)
+            try await executeCompileSpec(compile, in: dirURL)
+        } else {
+            printi("Built version up-to-date; skipping compile.")
+        }
     }
 
     if entry.relaunch?.enable == true {
