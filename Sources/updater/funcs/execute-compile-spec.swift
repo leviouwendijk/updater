@@ -17,7 +17,7 @@ public func executeCompileSpec(_ spec: CompileSpec, in dirURL: URL) async throws
     }
 
     let ok = "Compile: " + "Ok".ansi(.green, .bold) + " " + res.shortSummary
-    let div = String(repeating: "-", count: 50)
+    let div = String(repeating: "-", count: (50-16))
     printi(div)
     printi(ok)
     printi(div)
