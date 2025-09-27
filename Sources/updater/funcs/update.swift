@@ -62,20 +62,37 @@ public func update(entry: RepoEntry, safe: Bool) async throws {
         let obj_url = try BuildObjectConfiguration.traverseForBuildObjectPkl(from: dirURL)
         let obj = try BuildObjectConfiguration(from: obj_url)
 
-        let compl_url = try CompiledLocalBuildObject.traverseForCompiledObjectPkl(from: dirURL)
-        let compl = try CompiledLocalBuildObject(from: compl_url)
+        let v_release = obj.versions.release
 
-        let b = compl.version
-        let r = obj.versions.release
-        let builtIsBehind = (b.major, b.minor, b.patch) < (r.major, r.minor, r.patch)
+        // soft try to get compiled.pkl
+        let compl_url_soft = try? BuildObjectConfiguration.traverseForBuildObjectPkl(
+            from: dirURL,
+            maxDepth: 6,
+            buildFile: "compiled.pkl"
+        )
+        // perform soft matching
+        // so that we continue and don't throw
+        // and stil update if not there
 
-        if builtIsBehind {
+        // only do comparison check if a file was found:
+        if let compl_url_found = compl_url_soft {
+            let compl_cfg = try CompiledLocalBuildObject(from: compl_url_found)
+            let v_compiled = compl_cfg.version
+            
+            let c = v_compiled
+            let r = v_release
+            let builtIsBehind = (c.major, c.minor, c.patch) < (r.major, r.minor, r.patch)
+
+            // if v_compiled == v_release { 
+            if !builtIsBehind {
+                printi("Built version seems up-to-date; skipping compile.")
+                return 
+            }
+
             printi("Built version is now behind repository recompiling…")
-            printi("compiled:   \(compl.version.string(prefixStyle: .none))", times: 2)
-            printi("release:    \(obj.versions.release.string(prefixStyle: .none))", times: 2)
+            printi("compiled:   \(v_compiled.string(prefixStyle: .none))", times: 2)
+            printi("release:    \(v_release.string(prefixStyle: .none))", times: 2)
             try await executeCompileSpec(compile, in: dirURL)
-        } else {
-            printi("Built version up-to-date; skipping compile.")
         }
     }
 
