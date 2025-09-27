@@ -1,0 +1,626 @@
++-------------------+
+| concatenation.txt |
++-------------------+
+(!): 1 blank lines
+
+
++------------------+
+| Package.resolved |
++------------------+
+{
+  "originHash" : "128ff45718cd3f7b7b9de7be3c71eff9783caec74671dd0a0971e8f83e429bc9",
+  "pins" : [
+    {
+      "identity" : "executable",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Executable.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "41b6d91d94d656146fdb9d0e844e8c8a7e60f5cb"
+      }
+    },
+    {
+      "identity" : "extensions",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Extensions.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "3310d463b1bc509cccd8e75f0acc221e153f5dff"
+      }
+    },
+    {
+      "identity" : "interfaces",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Interfaces.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "84e02f4613bea255723b8a34be4b4996341016fe"
+      }
+    },
+    {
+      "identity" : "plate",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/plate.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "a53ffb7a6a3825f09d3752797a6abd19ec9a25fc"
+      }
+    },
+    {
+      "identity" : "structures",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Structures.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "ee6c6836b897caff5a2f9111351976264a043076"
+      }
+    },
+    {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser.git",
+      "state" : {
+        "revision" : "309a47b2b1d9b5e991f36961c983ecec72275be3",
+        "version" : "1.6.1"
+      }
+    }
+  ],
+  "version" : 3
+}
+
+(!): 1 blank lines
+
+
++---------------+
+| Package.swift |
++---------------+
+// swift-tools-version: 6.1
+// The swift-tools-version declares the minimum version of Swift required to build this package.
+
+import PackageDescription
+
+let package = Package(
+    name: "updater",
+    platforms: [
+        .macOS(.v13)
+    ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.2.0"),
+        .package(url: "https://github.com/leviouwendijk/plate.git", branch: "master"),
+        .package(url: "https://github.com/leviouwendijk/Interfaces.git", branch: "master"),
+        .package(url: "https://github.com/leviouwendijk/Executable.git", branch: "master"),
+    ],
+    targets: [
+        // Targets are the basic building blocks of a package, defining a module or a test suite.
+        // Targets can depend on other targets in this package and products from dependencies.
+        .executableTarget(
+            name: "updater",
+            dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "plate", package: "plate"),
+                .product(name: "Interfaces", package: "Interfaces"),
+                .product(name: "Executable", package: "Executable"),
+            ],
+            exclude: [
+            ],
+            resources: [
+                .process("Resources"),
+            ]
+        ),
+    ]
+)
+
+(!): 1 blank lines
+
+
++--------------------------------------+
+| Sources/updater/cmd/cmd-update.swift |
++--------------------------------------+
+import Foundation
+import ArgumentParser
+import Interfaces
+
+// public func defaultSBMBin() -> String {
+//     let home = FileManager.default.homeDirectoryForCurrentUser.path
+//     let path = "\(home)/sbm-bin".replacingOccurrences(of: "//", with: "/")
+//     try? FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
+//     return path
+// }
+
+struct Updater: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Run git+swift updates across multiple repos."
+    )
+
+    private static let defaultConfigPath: String = {
+        guard let url = Bundle.module.url(forResource: "repos", withExtension: "json") else {
+            fatalError("Couldn’t find repos.json in bundle resources")
+        }
+        return url.path
+    }()
+
+    @Option(name: [.short, .long], help: "Path to your JSON config (default: bundled repos.json)")
+    var config: String = Updater.defaultConfigPath
+
+    @Flag(help: "Avoid resets on hard head repos (on by default to ensure updates roll out)")
+    var safe: Bool = false
+
+    func run() async throws {
+        let url = URL(fileURLWithPath: config).resolvingSymlinksInPath()
+        let data = try Data(contentsOf: url)
+        let repos = try JSONDecoder().decode([RepoEntry].self, from: data)
+
+        for entry in repos {
+            do {
+                try await update(entry: entry, safe: safe)
+            } catch let e as Shell.Error {
+                // concise summary
+                fputs("Failed updating \(entry.path): \(e)\n", stderr)
+
+                // full dump
+                fputs(e.localizedDescription + "\n", stderr)
+            } catch {
+                fputs("Failed updating \(entry.path): \(String(describing: error))\n", stderr)
+            }
+        }
+    }
+}
+
+(!): 1 blank lines
+
+
++--------------------------------------+
+| Sources/updater/Resources/repos.json |
++--------------------------------------+
+[
+    { 
+        "path": "~/myworkdir/programming/scripts/updater",
+        "type": "script",
+        "compile": {
+            "process": "sbm",
+            "arguments": []
+        }
+    },
+    { 
+        "path": "~/myworkdir/programming/resources",
+        "type": "resource"
+    },
+    { 
+        "path": "~/myworkdir/programming/scripts/numbers-parser",
+        "type": "script",
+        "compile": {
+            "process": "sbm",
+            "arguments": []
+        }
+    },
+    { 
+        "path": "~/myworkdir/programming/scripts/mailer",
+        "type": "script",
+        "compile": {
+            "process": "sbm",
+            "arguments": []
+        }
+    },
+    {
+        "path": "~/myworkdir/programming/applications/Responder",
+        "type": "application",
+        "compile": {
+            "process": "sbm",
+            "arguments": ["--skip-targets", "Responder"]
+        },
+        "relaunch": {
+            "enable": true,
+            "target": "infer"
+        }
+    },
+    {
+        "path": "~/myworkdir/programming/applications/Picker",
+        "type": "application",
+        "compile": {
+            "process": "sbm",
+            "arguments": ["--skip-targets", "Picker"]
+        },
+        "relaunch": {
+            "enable": true,
+            "target": "infer"
+        }
+    },
+    { 
+        "path": "~/myworkdir/programming/scripts/travel-quote",
+        "type": "script",
+        "compile": {
+            "process": "sbm",
+            "arguments": []
+        }
+    },
+    { 
+        "path": "~/myworkdir/programming/scripts/swift-build-manager",
+        "type": "script",
+        "compile": {
+            "process": "sbm",
+            "arguments": []
+        }
+    },
+    {
+        "path": "~/myworkdir/programming/applications/DiskMapper",
+        "type": "application",
+        "compile": {
+            "process": "sbm",
+            "arguments": ["--targets", "diskmap"]
+        },
+        "relaunch": {
+            "enable": true,
+            "target": "infer"
+        }
+    }
+]
+
+(!): 1 blank lines
+
+
++--------------------------------------------+
+| Sources/updater/models/config-models.swift |
++--------------------------------------------+
+import Foundation
+
+public enum RepoType: String, Codable {
+    case script
+    case application
+    case resource
+}
+
+public struct CompileSpec: Codable {
+    public let process: String
+    public let arguments: [String]
+}
+
+public struct RelaunchSpec: Codable {
+    public var enable: Bool
+    public var target: String? 
+    
+    public init(
+        enable: Bool = false,
+        target: String? = nil
+    ) {
+        self.enable = enable
+        self.target = target
+    }
+}
+
+public struct RepoEntry: Codable {
+    public let path: String
+    public let type: RepoType?          
+    public let compile: CompileSpec?    
+    public var relaunch: RelaunchSpec?
+}
+
+(!): 1 blank lines
+
+
++--------------------------------------------------+
+| Sources/updater/funcs/execute-compile-spec.swift |
++--------------------------------------------------+
+import Foundation
+import Interfaces
+import plate
+import ArgumentParser
+
+public func executeCompileSpec(_ spec: CompileSpec, in dirURL: URL) async throws {
+    let cmdLine = (["/usr/bin/env", spec.process] + spec.arguments).map {
+        $0.isEmpty ? "''" : "'" + $0.replacingOccurrences(of: "'", with: "'\"'\"'") + "'"
+    }.joined(separator: " ")
+
+    print("    → \(cmdLine)")
+
+    let res = try await sh(.zsh, spec.process, spec.arguments, cwd: dirURL)
+
+    if let code = res.exitCode, code != 0 {
+        throw ArgumentParser.ValidationError("Compile process \(spec.process) exited with \(code)")
+    }
+
+    let ok = "Compile: " + "Ok".ansi(.green, .bold) + " " + res.shortSummary
+    let div = String(repeating: "-", count: (50-16))
+    printi(div)
+    printi(ok)
+    printi(div)
+}
+
+(!): 1 blank lines
+
+
++------------------------------------+
+| Sources/updater/funcs/update.swift |
++------------------------------------+
+import Foundation
+import Interfaces
+import plate
+
+@inline(__always)
+private func isDirty(_ dir: URL) async throws -> Bool {
+    let s = try await sh(.zsh, "git", ["status","--porcelain"], cwd: dir)
+        .stdoutText().trimmingCharacters(in: .whitespacesAndNewlines)
+    return !s.isEmpty
+}
+
+public func update(entry: RepoEntry, safe: Bool) async throws {
+    let expanded = (entry.path as NSString).expandingTildeInPath
+    let dirURL   = URL(fileURLWithPath: expanded)
+
+    print("\n    Checking \(expanded)…")
+
+    // guard (try? await GitRepo.outdated(dirURL)) == true else {
+    //     print("    No upstream changes; skipping.".ansi(.bold))
+    //     // return // disable return!!
+    // }
+
+    let isOutdated = (try? await GitRepo.outdated(dirURL)) == true
+    if !isOutdated {
+        print("    No upstream changes; continuing to version check.".ansi(.bold))
+    }
+
+    let (remote, branch) = try await GitRepo.upstream(dirURL)
+    let div = try await GitRepo.divergence(dirURL)
+    print("    Upstream: \(remote)/\(branch)  (ahead=\(div.ahead), behind=\(div.behind))")
+
+    if try await isDirty(dirURL) {
+        let severity: ANSIColor = safe ? .red : .yellow
+        printi("Working tree is dirty.".ansi(severity))
+
+        if safe {
+            printi("Safe mode enabled in run".ansi(.yellow))
+
+            print()
+
+            printi("Aborting to avoid losing changes.".ansi(.red))
+            printi("Hint: commit/stash or run: git reset --hard && git pull --ff-only \(remote) \(branch)")
+
+            print()
+
+            printi("Leaving repository scope")
+            return
+        } else {
+            printi("No '--safe' flag enabled, proceeding compile.".ansi(.cyan))
+        }
+    }
+
+    if isOutdated {
+        print("    Updating…")
+        _ = try await sh(.zsh, "git", ["reset","--hard","HEAD"], cwd: dirURL)
+
+        // Pull rules:
+        // - behind>0 && ahead==0  → fast-forward only
+        // - behind>0 && ahead>0   → diverged; bail (don’t auto-merge/rebase here)
+        // - behind==0             → already at/after upstream; skip pull
+        if div.behind > 0 && div.ahead == 0 {
+            _ = try await sh(.zsh, "git", ["pull","--ff-only", remote, branch], cwd: dirURL)
+        } else if div.behind > 0 && div.ahead > 0 {
+            if safe {
+                print("    Branch has diverged (ahead \(div.ahead), behind \(div.behind)).".ansi(.red))
+                print("    Safe mode: not rewriting history automatically.")
+                print("    Resolve manually: git pull --rebase \(remote) \(branch)  (or merge), then re-run.")
+                return
+            } else {
+                print("    Branch has diverged (ahead \(div.ahead), behind \(div.behind)). Trying rebase…".ansi(.yellow))
+                do {
+                    // Make sure we have the latest remote commits
+                    _ = try await sh(.zsh, "git", ["fetch", remote, branch], cwd: dirURL)
+                    // Rebase local commits on top of upstream, auto-stashing any local changes
+                    _ = try await sh(.zsh, "git", ["rebase", "--autostash", "--rebase-merges", "\(remote)/\(branch)"], cwd: dirURL)
+                    print("    Rebase completed.".ansi(.green))
+                } catch {
+                    print("    Rebase failed; leaving repository as-is.".ansi(.red))
+                    print("    Hint: resolve conflicts, then `git rebase --continue` or `git rebase --abort`.")
+                    return
+                }
+            }
+        } else {
+            print("    Local branch is ahead of upstream; skipping pull.")
+        }
+    }
+
+    if let compile = entry.compile {
+        let obj_url = try BuildObjectConfiguration.traverseForBuildObjectPkl(from: dirURL)
+        let obj = try BuildObjectConfiguration(from: obj_url)
+
+        let v_release = obj.versions.release
+
+        // soft try to get compiled.pkl
+        let compl_url_soft = try? BuildObjectConfiguration.traverseForBuildObjectPkl(
+            from: dirURL,
+            maxDepth: 6,
+            buildFile: "compiled.pkl"
+        )
+
+        var reasonToCompile = false
+
+        if let compl_url_found = compl_url_soft {
+            let compl_cfg = try CompiledLocalBuildObject(from: compl_url_found)
+            let v_compiled = compl_cfg.version
+            
+            let c = v_compiled
+            let r = v_release
+            let builtIsBehind = (c.major, c.minor, c.patch) < (r.major, r.minor, r.patch)
+
+            // if v_compiled == v_release { 
+            if !builtIsBehind {
+                printi("Built version seems up-to-date; skipping compile.")
+            } else {
+                reasonToCompile = true
+                printi("Built version is now behind repository recompiling…")
+                printi("compiled:   \(v_compiled.string(prefixStyle: .none))", times: 2)
+                printi("release:    \(v_release.string(prefixStyle: .none))", times: 2)
+            }
+        } else {
+            printi("No compiled.pkl detected; compiling…")
+            reasonToCompile = true
+        }
+
+        if reasonToCompile {
+            try await executeCompileSpec(compile, in: dirURL)
+        }
+    }
+
+    if entry.relaunch?.enable == true {
+        try await relaunchApplication(dirURL, target: entry.relaunch?.target)
+    }
+
+    print("")
+}
+
+(!): 1 blank lines
+
+
++--------------------------------------+
+| Sources/updater/funcs/relaunch.swift |
++--------------------------------------+
+import Foundation
+import plate
+import Interfaces
+import AppKit
+
+public func relaunchApplication(_ directoryURL: URL, target: String? = nil) async throws {
+    let repoName    = directoryURL.lastPathComponent                 // e.g. "Responder"
+    let inferredApp = repoName + ".app"
+
+    let targetAppName = (target == "infer") ? inferredApp : (target ?? inferredApp)
+    let appBundleName = targetAppName.hasSuffix(".app") ? targetAppName : targetAppName + ".app"
+    let appBundleURL  = directoryURL.appendingPathComponent(appBundleName)
+
+    let fm = FileManager.default
+    guard fm.fileExists(atPath: appBundleURL.path) else {
+        print("    No \(appBundleName) found at \(appBundleURL.path); skipping launch.")
+        return
+    }
+
+    // Read executable + bundle id from Info.plist (authoritative)
+    guard let bundle = Bundle(url: appBundleURL),
+          let execName = bundle.object(forInfoDictionaryKey: "CFBundleExecutable") as? String
+    else {
+        print("    Could not read CFBundleExecutable from \(appBundleURL.path); skipping.")
+        return
+    }
+    let bundleID = bundle.bundleIdentifier
+
+    // 1) Preferred: find/terminate by bundle identifier
+    var terminated = false
+    if let bid = bundleID {
+        let running = NSRunningApplication.runningApplications(withBundleIdentifier: bid)
+        if !running.isEmpty {
+            print("    [RUNNING] \(bid) → \(running.map { $0.processIdentifier }.map(String.init).joined(separator: ","))")
+            for app in running {
+                _ = app.terminate()
+            }
+            // Give it a moment to terminate cleanly; force if needed
+            for app in running {
+                if app.isTerminated == false {
+                    usleep(200_000) // 200ms
+                    if app.isTerminated == false {
+                        _ = app.forceTerminate()
+                    }
+                }
+            }
+            terminated = true
+            print("    [STOPPED] \(bid)")
+        } else {
+            print("    [NOT RUNNING] \(bid)")
+        }
+    } else {
+        print("    [INFO] No bundle identifier; falling back to pgrep/killall.")
+    }
+
+    // 2) Fallback: pgrep -x <execName>, else -f <bundle path>
+    if terminated == false {
+        var opt = Shell.Options(); opt.cwd = directoryURL
+
+        // exact process name
+        let p1 = try? await Shell(.path("/usr/bin/pgrep"))
+            .run("/usr/bin/pgrep", ["-x", execName], options: opt)
+        let pidText = p1?.stdoutText().trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let exactHit = (p1?.exitCode == 0) && !pidText.isEmpty
+
+        let runningDesc = exactHit ? "\(execName) \(pidText)" : "(no exact name match)"
+        print("    [CHECK pgrep -x] \(runningDesc)")
+
+        if exactHit {
+            _ = try? await Shell(.path("/usr/bin/killall"))
+                .run("/usr/bin/killall", ["-TERM", execName], options: opt)
+            print("    [STOPPED] \(execName)")
+        } else {
+            // try -f with full bundle path
+            let p2 = try? await Shell(.path("/usr/bin/pgrep"))
+                .run("/usr/bin/pgrep", ["-f", appBundleURL.path], options: opt)
+            let pid2 = p2?.stdoutText().trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if (p2?.exitCode == 0) && !pid2.isEmpty {
+                print("    [CHECK pgrep -f] \(pid2)")
+                // killall still wants the executable name
+                _ = try? await Shell(.path("/usr/bin/killall"))
+                    .run("/usr/bin/killall", ["-TERM", execName], options: opt)
+                print("    [STOPPED] \(execName)")
+            } else {
+                print("    [NOT RUNNING] \(execName)")
+            }
+        }
+    }
+
+    if terminated {
+        var optOpen = Shell.Options(); optOpen.cwd = directoryURL
+        _ = try await Shell(.path("/usr/bin/open"))
+        .run("/usr/bin/open", [appBundleURL.path], options: optOpen)
+
+        print("    [RE-LAUNCHED] \(appBundleName)".ansi(.green))
+    }
+}
+
+(!): 1 blank lines
+
+
++---------------------------+
+| Sources/updater/app.swift |
++---------------------------+
+@main
+struct updater_app {
+    static func main() async {
+        await Updater.main()
+    }
+}
+
+(!): 1 blank lines
+
+
++------------------+
+| build-object.pkl |
++------------------+
+uuid = "FFB3DDE6-8C0C-42C0-91D8-2315C2B76737"
+name = "updater"
+types {
+    "binary"
+}
+versions {
+    release {
+        major = 1
+        minor = 0
+        patch = 0
+    }
+}
+compile {
+    use = true
+    arguments { "--targets" "updater" }
+}
+details = "updater management util"
+author = "Levi Ouwendijk"
+update = "https://raw.githubusercontent.com/leviouwendijk/updater/master/build-object.pkl"
+
+(!): 1 blank lines
+
+
++--------------+
+| compiled.pkl |
++--------------+
+compiled {
+    version {
+        major = 1
+        minor = 0
+        patch = 0
+    }
+    arguments { "--targets" "updater" "--pkl-invoked" }
+}

@@ -50,39 +50,38 @@ public func update(entry: RepoEntry, safe: Bool) async throws {
         }
     }
 
-    if isOutdated {
-        print("    Updating…")
-        _ = try await sh(.zsh, "git", ["reset","--hard","HEAD"], cwd: dirURL)
+    // If remote changed OR we differ from upstream in any way, make local == upstream
+    if isOutdated || div.ahead > 0 || div.behind > 0 {
+        if div.ahead > 0 && safe {
+            // Preserve prior safe behavior: don’t drop local commits in safe mode
+            printi("Branch has diverged (ahead \(div.ahead), behind \(div.behind)).".ansi(.red))
+            printi("Safe mode: not discarding local commits automatically.")
 
-        // Pull rules:
-        // - behind>0 && ahead==0  → fast-forward only
-        // - behind>0 && ahead>0   → diverged; bail (don’t auto-merge/rebase here)
-        // - behind==0             → already at/after upstream; skip pull
-        if div.behind > 0 && div.ahead == 0 {
-            _ = try await sh(.zsh, "git", ["pull","--ff-only", remote, branch], cwd: dirURL)
-        } else if div.behind > 0 && div.ahead > 0 {
-            if safe {
-                print("    Branch has diverged (ahead \(div.ahead), behind \(div.behind)).".ansi(.red))
-                print("    Safe mode: not rewriting history automatically.")
-                print("    Resolve manually: git pull --rebase \(remote) \(branch)  (or merge), then re-run.")
-                return
-            } else {
-                print("    Branch has diverged (ahead \(div.ahead), behind \(div.behind)). Trying rebase…".ansi(.yellow))
-                do {
-                    // Make sure we have the latest remote commits
-                    _ = try await sh(.zsh, "git", ["fetch", remote, branch], cwd: dirURL)
-                    // Rebase local commits on top of upstream, auto-stashing any local changes
-                    _ = try await sh(.zsh, "git", ["rebase", "--autostash", "--rebase-merges", "\(remote)/\(branch)"], cwd: dirURL)
-                    print("    Rebase completed.".ansi(.green))
-                } catch {
-                    print("    Rebase failed; leaving repository as-is.".ansi(.red))
-                    print("    Hint: resolve conflicts, then `git rebase --continue` or `git rebase --abort`.")
-                    return
-                }
-            }
-        } else {
-            print("    Local branch is ahead of upstream; skipping pull.")
+            print()
+
+            printi("To preserve local history: rebase your local commits onto upstream:")
+            printi(
+                "git fetch --prune --tags && git rebase --autostash --rebase-merges \(remote)/\(branch)"
+                .ansi(.cyan),
+                times: 2
+            )
+            printi("To reset local changes to upstream: re-run without --safe, or do:")
+            printi(
+                "updater (no --safe flag)"
+                .ansi(.cyan),
+                times: 2
+            )
+            printi("or:")
+            printi("git fetch --prune --tags && git reset --hard @{u} && git clean -fdx"
+                .ansi(.cyan),
+                times: 2
+            )
+            return
         }
+
+        printi("Updating (resetting to upstream)…")
+        try await GitRepo.hardResetToUpstream(dirURL, cleanUntracked: false)
+        printi("Reset complete.")
     }
 
     if let compile = entry.compile {
