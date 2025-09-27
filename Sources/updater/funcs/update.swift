@@ -1,13 +1,7 @@
 import Foundation
 import Interfaces
 import plate
-
-@inline(__always)
-private func isDirty(_ dir: URL) async throws -> Bool {
-    let s = try await sh(.zsh, "git", ["status","--porcelain"], cwd: dir)
-        .stdoutText().trimmingCharacters(in: .whitespacesAndNewlines)
-    return !s.isEmpty
-}
+import Executable
 
 public func update(entry: RepoEntry, safe: Bool) async throws {
     let expanded = (entry.path as NSString).expandingTildeInPath
@@ -29,7 +23,7 @@ public func update(entry: RepoEntry, safe: Bool) async throws {
     let div = try await GitRepo.divergence(dirURL)
     print("    Upstream: \(remote)/\(branch)  (ahead=\(div.ahead), behind=\(div.behind))")
 
-    if try await isDirty(dirURL) {
+    if try await GitRepo.isDirty(dirURL) {
         let severity: ANSIColor = safe ? .red : .yellow
         printi("Working tree is dirty.".ansi(severity))
 
@@ -127,7 +121,8 @@ public func update(entry: RepoEntry, safe: Bool) async throws {
     }
 
     if entry.relaunch?.enable == true {
-        try await relaunchApplication(dirURL, target: entry.relaunch?.target)
+        // try await relaunchApplication(dirURL, target: entry.relaunch?.target)
+        try await ProcessEvaluator().relaunch(dirURL, target: entry.relaunch?.target)
     }
 
     print("")
