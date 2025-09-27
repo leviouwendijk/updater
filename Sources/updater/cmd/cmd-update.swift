@@ -9,7 +9,7 @@ struct Updater: AsyncParsableCommand {
     )
 
     private static let defaultConfigPath: String = {
-        guard let url = Bundle.module.url(forResource: "repos", withExtension: "json") else {
+        guard let url = Bundle.module.url(forResource: "objects", withExtension: "json") else {
             fatalError("Couldn’t find repos.json in bundle resources")
         }
         return url.path
@@ -25,9 +25,9 @@ struct Updater: AsyncParsableCommand {
         let url = URL(fileURLWithPath: config).resolvingSymlinksInPath()
         let data = try Data(contentsOf: url)
         // let repos = try JSONDecoder().decode([RepoEntry].self, from: data)
-        let repos = try JSONDecoder().decode([RenewableObject].self, from: data)
+        let objects = try JSONDecoder().decode([RenewableObject].self, from: data)
 
-        try await ObjectRenewer.update(objects: repos, safe: safe)
+        try await ObjectRenewer.update(objects: objects, safe: safe)
         // for entry in repos {
         //     do {
         //         try await update(entry: entry, safe: safe)

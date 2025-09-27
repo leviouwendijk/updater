@@ -33,7 +33,8 @@
     },
     { 
         "path": "~/myworkdir/programming/scripts/travel-quote",
-        "compilable": true
+        "compilable": true,
+        "ignore": true
     },
     { 
         "path": "~/myworkdir/programming/scripts/swift-build-manager",
