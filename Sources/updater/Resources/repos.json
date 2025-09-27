@@ -1,39 +1,23 @@
 [
     { 
         "path": "~/myworkdir/programming/scripts/updater",
-        "type": "script",
-        "compile": {
-            "process": "sbm",
-            "arguments": []
-        }
+        "compilable": true
     },
     { 
         "path": "~/myworkdir/programming/resources",
-        "type": "resource"
+        "compilable": false
     },
     { 
         "path": "~/myworkdir/programming/scripts/numbers-parser",
-        "type": "script",
-        "compile": {
-            "process": "sbm",
-            "arguments": []
-        }
+        "compilable": true
     },
     { 
         "path": "~/myworkdir/programming/scripts/mailer",
-        "type": "script",
-        "compile": {
-            "process": "sbm",
-            "arguments": []
-        }
+        "compilable": true
     },
     {
         "path": "~/myworkdir/programming/applications/Responder",
-        "type": "application",
-        "compile": {
-            "process": "sbm",
-            "arguments": ["--skip-targets", "Responder"]
-        },
+        "compilable": true,
         "relaunch": {
             "enable": true,
             "target": "infer"
@@ -41,11 +25,7 @@
     },
     {
         "path": "~/myworkdir/programming/applications/Picker",
-        "type": "application",
-        "compile": {
-            "process": "sbm",
-            "arguments": ["--skip-targets", "Picker"]
-        },
+        "compilable": true,
         "relaunch": {
             "enable": true,
             "target": "infer"
@@ -53,27 +33,15 @@
     },
     { 
         "path": "~/myworkdir/programming/scripts/travel-quote",
-        "type": "script",
-        "compile": {
-            "process": "sbm",
-            "arguments": []
-        }
+        "compilable": true
     },
     { 
         "path": "~/myworkdir/programming/scripts/swift-build-manager",
-        "type": "script",
-        "compile": {
-            "process": "sbm",
-            "arguments": []
-        }
+        "compilable": true
     },
     {
         "path": "~/myworkdir/programming/applications/DiskMapper",
-        "type": "application",
-        "compile": {
-            "process": "sbm",
-            "arguments": ["--targets", "diskmap"]
-        },
+        "compilable": true,
         "relaunch": {
             "enable": true,
             "target": "infer"

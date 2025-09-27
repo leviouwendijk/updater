@@ -1,13 +1,7 @@
 import Foundation
 import ArgumentParser
 import Interfaces
-
-// public func defaultSBMBin() -> String {
-//     let home = FileManager.default.homeDirectoryForCurrentUser.path
-//     let path = "\(home)/sbm-bin".replacingOccurrences(of: "//", with: "/")
-//     try? FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
-//     return path
-// }
+import Executable
 
 struct Updater: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
@@ -30,20 +24,22 @@ struct Updater: AsyncParsableCommand {
     func run() async throws {
         let url = URL(fileURLWithPath: config).resolvingSymlinksInPath()
         let data = try Data(contentsOf: url)
-        let repos = try JSONDecoder().decode([RepoEntry].self, from: data)
+        // let repos = try JSONDecoder().decode([RepoEntry].self, from: data)
+        let repos = try JSONDecoder().decode([RenewableObject].self, from: data)
 
-        for entry in repos {
-            do {
-                try await update(entry: entry, safe: safe)
-            } catch let e as Shell.Error {
-                // concise summary
-                fputs("Failed updating \(entry.path): \(e)\n", stderr)
+        try await ObjectRenewer.update(objects: repos, safe: safe)
+        // for entry in repos {
+        //     do {
+        //         try await update(entry: entry, safe: safe)
+        //     } catch let e as Shell.Error {
+        //         // concise summary
+        //         fputs("Failed updating \(entry.path): \(e)\n", stderr)
 
-                // full dump
-                fputs(e.localizedDescription + "\n", stderr)
-            } catch {
-                fputs("Failed updating \(entry.path): \(String(describing: error))\n", stderr)
-            }
-        }
+        //         // full dump
+        //         fputs(e.localizedDescription + "\n", stderr)
+        //     } catch {
+        //         fputs("Failed updating \(entry.path): \(String(describing: error))\n", stderr)
+        //     }
+        // }
     }
 }
