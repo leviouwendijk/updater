@@ -31,18 +31,22 @@ public func update(entry: RepoEntry, safe: Bool) async throws {
 
     if try await isDirty(dirURL) {
         let severity: ANSIColor = safe ? .red : .yellow
-        print("    Working tree is dirty. Aborting to avoid losing changes.".ansi(severity))
+        printi("Working tree is dirty.".ansi(severity))
 
         if safe {
             printi("Safe mode enabled in run".ansi(.yellow))
 
             print()
-            print("    Aborting to avoid losing changes.".ansi(.red))
-            print("    Hint: commit/stash or run: git reset --hard && git pull --ff-only \(remote) \(branch)")
+
+            printi("Aborting to avoid losing changes.".ansi(.red))
+            printi("Hint: commit/stash or run: git reset --hard && git pull --ff-only \(remote) \(branch)")
+
             print()
 
             printi("Leaving repository scope")
             return
+        } else {
+            printi("No '--safe' flag enabled, proceeding compile.".ansi(.cyan))
         }
     }
 
@@ -57,9 +61,25 @@ public func update(entry: RepoEntry, safe: Bool) async throws {
         if div.behind > 0 && div.ahead == 0 {
             _ = try await sh(.zsh, "git", ["pull","--ff-only", remote, branch], cwd: dirURL)
         } else if div.behind > 0 && div.ahead > 0 {
-            print("    Branch has diverged (ahead \(div.ahead), behind \(div.behind)).".ansi(.red))
-            print("    Resolve manually: git pull --rebase \(remote) \(branch)  (or merge), then re-run.")
-            return
+            if safe {
+                print("    Branch has diverged (ahead \(div.ahead), behind \(div.behind)).".ansi(.red))
+                print("    Safe mode: not rewriting history automatically.")
+                print("    Resolve manually: git pull --rebase \(remote) \(branch)  (or merge), then re-run.")
+                return
+            } else {
+                print("    Branch has diverged (ahead \(div.ahead), behind \(div.behind)). Trying rebase…".ansi(.yellow))
+                do {
+                    // Make sure we have the latest remote commits
+                    _ = try await sh(.zsh, "git", ["fetch", remote, branch], cwd: dirURL)
+                    // Rebase local commits on top of upstream, auto-stashing any local changes
+                    _ = try await sh(.zsh, "git", ["rebase", "--autostash", "--rebase-merges", "\(remote)/\(branch)"], cwd: dirURL)
+                    print("    Rebase completed.".ansi(.green))
+                } catch {
+                    print("    Rebase failed; leaving repository as-is.".ansi(.red))
+                    print("    Hint: resolve conflicts, then `git rebase --continue` or `git rebase --abort`.")
+                    return
+                }
+            }
         } else {
             print("    Local branch is ahead of upstream; skipping pull.")
         }
