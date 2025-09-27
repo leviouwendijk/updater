@@ -9,3 +9,8 @@ DerivedData/
 
 .index-build/
 
+
+# auto-added ignorables:
+compiled.pkl
+/compiled.pkl
+**/compiled.pkl

@@ -59,16 +59,20 @@ public func update(entry: RepoEntry, safe: Bool) async throws {
     }
 
     if let compile = entry.compile {
-        let url = try BuildObjectConfiguration.traverseForBuildObjectPkl(from: dirURL)
-        let cfg = try BuildObjectConfiguration(from: url)
-        let b = cfg.versions.built
-        let r = cfg.versions.repository
+        let obj_url = try BuildObjectConfiguration.traverseForBuildObjectPkl(from: dirURL)
+        let obj = try BuildObjectConfiguration(from: obj_url)
+
+        let compl_url = try CompiledLocalBuildObject.traverseForCompiledObjectPkl(from: dirURL)
+        let compl = try CompiledLocalBuildObject(from: compl_url)
+
+        let b = compl.version
+        let r = obj.versions.release
         let builtIsBehind = (b.major, b.minor, b.patch) < (r.major, r.minor, r.patch)
 
         if builtIsBehind {
             printi("Built version is now behind repository recompiling…")
-            printi("built:      \(cfg.versions.built.string())", times: 2)
-            printi("repository: \(cfg.versions.repository.string())", times: 2)
+            printi("compiled:   \(compl.version.string(prefixStyle: .none))", times: 2)
+            printi("release:    \(obj.versions.release.string(prefixStyle: .none))", times: 2)
             try await executeCompileSpec(compile, in: dirURL)
         } else {
             printi("Built version up-to-date; skipping compile.")

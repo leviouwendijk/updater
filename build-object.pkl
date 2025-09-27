@@ -1,0 +1,19 @@
+uuid = "FFB3DDE6-8C0C-42C0-91D8-2315C2B76737"
+name = "updater"
+types {
+    "binary"
+}
+versions {
+    release {
+        major = 1
+        minor = 0
+        patch = 0
+    }
+}
+compile {
+    use = true
+    arguments { "--targets" "updater" }
+}
+details = "updater management util"
+author = "Levi Ouwendijk"
+update = "https://raw.githubusercontent.com/leviouwendijk/updater/master/build-object.pkl"
